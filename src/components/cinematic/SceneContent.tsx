@@ -7,6 +7,7 @@ import { useRef } from "react";
 import { timeline, PHASES } from "./timeline";
 import ParticleFigures from "./ParticleFigures";
 import RisingMoon from "./RisingMoon";
+import ParticleText from "./ParticleText";
 
 interface SceneContentProps {
   onNavReady: () => void;
@@ -45,6 +46,7 @@ export default function SceneContent({ onNavReady }: SceneContentProps) {
       />
       <ParticleFigures />
       <RisingMoon />
+      <ParticleText />
       <AdaptiveDpr pixelated />
       <EffectComposer>
         <Bloom
