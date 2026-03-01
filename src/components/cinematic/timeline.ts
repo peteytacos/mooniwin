@@ -1,0 +1,47 @@
+// src/components/cinematic/timeline.ts
+
+export const timeline = {
+  elapsed: 0,
+  playing: true,
+};
+
+export function resetTimeline() {
+  timeline.elapsed = 0;
+  timeline.playing = true;
+}
+
+// Phase boundaries (seconds)
+export const PHASES = {
+  STARS_START: 0,
+  STARS_END: 1,
+  FIGURES_START: 1,
+  FIGURES_END: 3,
+  MOON_START: 3,
+  MOON_END: 5,
+  ARM_START: 4,
+  ARM_END: 5,
+  TEXT_START: 5,
+  TEXT_END: 6,
+  LOGO_START: 6,
+  LOGO_END: 7,
+  NAV_START: 6.5,
+  NAV_END: 7.5,
+  DONE: 7.5,
+};
+
+/** Returns 0->1 progress for a value within a range, clamped */
+export function progress(elapsed: number, start: number, end: number): number {
+  if (elapsed < start) return 0;
+  if (elapsed > end) return 1;
+  return (elapsed - start) / (end - start);
+}
+
+/** Ease-out cubic */
+export function easeOut(t: number): number {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+/** Ease-in-out cubic */
+export function easeInOut(t: number): number {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
