@@ -6,6 +6,7 @@ import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { useRef } from "react";
 import { timeline, PHASES } from "./timeline";
 import ParticleFigures from "./ParticleFigures";
+import RisingMoon from "./RisingMoon";
 
 interface SceneContentProps {
   onNavReady: () => void;
@@ -43,6 +44,7 @@ export default function SceneContent({ onNavReady }: SceneContentProps) {
         speed={0.3}
       />
       <ParticleFigures />
+      <RisingMoon />
       <AdaptiveDpr pixelated />
       <EffectComposer>
         <Bloom
