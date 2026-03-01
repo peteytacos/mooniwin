@@ -7,7 +7,7 @@ import * as THREE from "three";
 import { sampleTextPositions } from "./textSampler";
 import { timeline, PHASES, progress, easeOut, easeInOut } from "./timeline";
 
-const PARTICLE_COUNT = 300;
+const PARTICLE_COUNT = typeof window !== "undefined" && window.innerWidth < 768 ? 180 : 300;
 const SPEECH_SCALE = 1.2; // size of text near figure
 const LOGO_SCALE = 3.5; // size of centered logo
 const SPEECH_OFFSET = { x: 1.8, y: -0.5, z: 0 }; // near pointing figure

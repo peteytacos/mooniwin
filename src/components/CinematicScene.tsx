@@ -77,7 +77,7 @@ export default function CinematicScene() {
             whileHover={{ opacity: 0.9 }}
             transition={{ duration: 0.5 }}
             onClick={handleReplay}
-            className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 z-20 text-slate-400 hover:text-white transition-colors text-xl cursor-pointer"
+            className="absolute bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-8 sm:bottom-8 z-20 text-slate-400 hover:text-white transition-colors text-xl cursor-pointer"
             aria-label="Replay animation"
           >
             ↻
