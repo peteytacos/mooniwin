@@ -5,6 +5,7 @@ import { Stars, AdaptiveDpr } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import { useRef } from "react";
 import { timeline, PHASES } from "./timeline";
+import ParticleFigures from "./ParticleFigures";
 
 interface SceneContentProps {
   onNavReady: () => void;
@@ -41,6 +42,7 @@ export default function SceneContent({ onNavReady }: SceneContentProps) {
         fade
         speed={0.3}
       />
+      <ParticleFigures />
       <AdaptiveDpr pixelated />
       <EffectComposer>
         <Bloom
