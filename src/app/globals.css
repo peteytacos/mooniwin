@@ -49,3 +49,33 @@ html {
 .moon-glow {
   box-shadow: 0 0 60px 20px rgba(253, 230, 138, 0.15), 0 0 120px 40px rgba(253, 230, 138, 0.08);
 }
+
+@keyframes crawl {
+  0% {
+    transform: translateY(90vh);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
+}
+
+.animate-crawl {
+  animation: crawl 45s linear infinite;
+}
+
+@keyframes shootingStar {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  10% {
+    opacity: 0.9;
+  }
+  80% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--tx), var(--ty));
+  }
+}

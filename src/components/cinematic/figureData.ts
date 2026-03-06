@@ -97,13 +97,13 @@ export function generateFigure(
   const rand = mulberry32(seed);
 
   // Body part point counts
-  const HEAD_COUNT = 30;
-  const NECK_COUNT = 8;
-  const TORSO_COUNT = 80;
-  const LEFT_ARM_COUNT = 25;
-  const RIGHT_ARM_COUNT = 25;
-  const LEFT_LEG_COUNT = 40;
-  const RIGHT_LEG_COUNT = 40;
+  const HEAD_COUNT = 90;
+  const NECK_COUNT = 25;
+  const TORSO_COUNT = 250;
+  const LEFT_ARM_COUNT = 75;
+  const RIGHT_ARM_COUNT = 75;
+  const LEFT_LEG_COUNT = 120;
+  const RIGHT_LEG_COUNT = 120;
   const TOTAL =
     HEAD_COUNT +
     NECK_COUNT +

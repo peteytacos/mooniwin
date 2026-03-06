@@ -14,7 +14,7 @@ function CameraController() {
   useFrame(() => {
     const aspect = size.width / size.height;
     const baseFov = 50;
-    const fov = aspect < 1 ? baseFov + (1 - aspect) * 20 : baseFov;
+    const fov = aspect < 1 ? baseFov + (1 - aspect) * 30 : baseFov;
     (camera as THREE.PerspectiveCamera).fov = fov;
     (camera as THREE.PerspectiveCamera).updateProjectionMatrix();
 

@@ -13,13 +13,13 @@ export function resetTimeline() {
 // Phase boundaries (seconds)
 export const PHASES = {
   FIELD_START: 0,
-  FIGURES_START: 1,
-  FIGURES_END: 3,
-  MOON_START: 3,
-  MOON_END: 5,
-  ARM_START: 4,
+  FIGURES_START: 0,    // everything together
+  FIGURES_END: 4,
+  MOON_START: 0,       // everything together
+  MOON_END: 3,
+  ARM_START: 3.5,
   ARM_END: 5,
-  NAV_START: 5.5,
+  NAV_START: 5,
   DONE: 6.5,
 };
 

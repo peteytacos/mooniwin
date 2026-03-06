@@ -4,30 +4,24 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Moon I Win — The World's Daily Moon Game",
-  description:
-    "Be the first in your group to spot the moon and shout 'Moon I Win!' The world's oldest daily competition. Free. Everywhere. For everyone.",
+  title: "moon, i win",
   keywords: ["moon", "game", "outdoor game", "moon i win", "daily game", "fun game"],
-  authors: [{ name: "Moon I Win" }],
+  authors: [{ name: "moon, i win" }],
   openGraph: {
-    title: "Moon I Win — The World's Daily Moon Game",
-    description:
-      "Be the first in your group to spot the moon and shout 'Moon I Win!' The world's oldest daily competition.",
+    title: "moon, i win",
     url: "https://mooniwin.com",
-    siteName: "Moon I Win",
+    siteName: "moon, i win",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Moon I Win — The World's Daily Moon Game",
-    description:
-      "Be the first in your group to spot the moon and shout 'Moon I Win!' Free. Outside. For everyone.",
+    title: "moon, i win",
   },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Moon I Win",
+    title: "moon, i win",
   },
 };
 
