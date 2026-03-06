@@ -21,12 +21,6 @@ export const PHASES = {
   ARM_END: 5,
   NAV_START: 5.5,
   DONE: 6.5,
-
-  // Deprecated – kept temporarily until ParticleText is removed
-  TEXT_START: 5,
-  TEXT_END: 6,
-  LOGO_START: 6,
-  LOGO_END: 7,
 };
 
 /** Returns 0->1 progress for a value within a range, clamped */
