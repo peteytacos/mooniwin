@@ -12,21 +12,15 @@ export function resetTimeline() {
 
 // Phase boundaries (seconds)
 export const PHASES = {
-  STARS_START: 0,
-  STARS_END: 1,
-  FIGURES_START: 1,
-  FIGURES_END: 3,
-  MOON_START: 3,
-  MOON_END: 5,
-  ARM_START: 4,
+  FIELD_START: 0,
+  FIGURES_START: 0,    // everything together
+  FIGURES_END: 4,
+  MOON_START: 0,       // everything together
+  MOON_END: 3,
+  ARM_START: 3.5,
   ARM_END: 5,
-  TEXT_START: 5,
-  TEXT_END: 6,
-  LOGO_START: 6,
-  LOGO_END: 7,
-  NAV_START: 6.5,
-  NAV_END: 7.5,
-  DONE: 7.5,
+  NAV_START: 5,
+  DONE: 6.5,
 };
 
 /** Returns 0->1 progress for a value within a range, clamped */
