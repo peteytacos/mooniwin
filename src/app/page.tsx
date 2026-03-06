@@ -8,7 +8,7 @@ const CinematicScene = dynamic(() => import("@/components/CinematicScene"), {
 
 export default function Home() {
   return (
-    <main className="bg-[#030712]">
+    <main className="bg-black">
       <CinematicScene />
     </main>
   );

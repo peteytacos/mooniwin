@@ -27,14 +27,14 @@ export default function CinematicScene() {
   }, []);
 
   return (
-    <div className="relative w-screen h-dvh bg-[#030712]">
+    <div className="relative w-screen h-dvh bg-black">
       <Canvas
         camera={{ position: [0, 0, 10], fov: 50 }}
         gl={{ antialias: true, alpha: false }}
         dpr={[1, 2]}
         style={{ position: "absolute", inset: 0 }}
       >
-        <color attach="background" args={["#030712"]} />
+        <color attach="background" args={["#000000"]} />
         <SceneContent onNavReady={handleNavReady} />
       </Canvas>
 

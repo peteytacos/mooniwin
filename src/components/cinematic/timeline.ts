@@ -12,21 +12,21 @@ export function resetTimeline() {
 
 // Phase boundaries (seconds)
 export const PHASES = {
-  STARS_START: 0,
-  STARS_END: 1,
+  FIELD_START: 0,
   FIGURES_START: 1,
   FIGURES_END: 3,
   MOON_START: 3,
   MOON_END: 5,
   ARM_START: 4,
   ARM_END: 5,
+  NAV_START: 5.5,
+  DONE: 6.5,
+
+  // Deprecated – kept temporarily until ParticleText is removed
   TEXT_START: 5,
   TEXT_END: 6,
   LOGO_START: 6,
   LOGO_END: 7,
-  NAV_START: 6.5,
-  NAV_END: 7.5,
-  DONE: 7.5,
 };
 
 /** Returns 0->1 progress for a value within a range, clamped */
