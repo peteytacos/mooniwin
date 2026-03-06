@@ -55,8 +55,8 @@ export default function SceneContent({ onNavReady }: SceneContentProps) {
       <AdaptiveDpr pixelated />
       <EffectComposer>
         <Bloom
-          intensity={0.6}
-          luminanceThreshold={0.3}
+          intensity={0.3}
+          luminanceThreshold={0.6}
           luminanceSmoothing={0.9}
           mipmapBlur
         />

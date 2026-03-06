@@ -124,7 +124,7 @@ void main() {
     pos.y = mod(pos.y + WRAP_Y, WRAP_Y * 2.0) - WRAP_Y;
     pos.z = mod(pos.z - WRAP_Z_MIN, WRAP_Z_MAX - WRAP_Z_MIN) + WRAP_Z_MIN;
 
-    vOpacity = uFieldFade * (0.3 + 0.4 * (1.0 + snoise(pos * 0.5 + uTime * 0.1)) * 0.5);
+    vOpacity = uFieldFade * (0.15 + 0.2 * (1.0 + snoise(pos * 0.5 + uTime * 0.1)) * 0.5);
   }
   else if (particleType < 1.5) {
     // === MOON PARTICLE ===
@@ -137,10 +137,10 @@ void main() {
     // After formation, add subtle breathing noise
     if (uMoonFormProgress > 0.95) {
       float breath = snoise(targetPosition * 3.0 + uTime * 0.5) * 0.03;
-      pos += normalize(targetPosition - vec3(0.0, uMoonRiseY, -8.0)) * breath;
+      pos += normalize(targetPosition - vec3(0.0, 0.0, -8.0)) * breath;
     }
 
-    vOpacity = uMoonFormProgress * 0.9;
+    vOpacity = uMoonFormProgress * 0.6;
   }
   else if (particleType < 2.5) {
     // === FIGURE LEFT ===
@@ -170,9 +170,9 @@ void main() {
 
   vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
 
-  // Size attenuation by depth
-  float baseSize = particleType < 0.5 ? 1.5 : 2.0;
-  gl_PointSize = baseSize * (300.0 / -mvPosition.z);
+  // Size attenuation by depth, clamped to avoid huge near-camera dots
+  float baseSize = particleType < 0.5 ? 1.2 : 2.0;
+  gl_PointSize = min(baseSize * (300.0 / -mvPosition.z), 8.0);
 
   gl_Position = projectionMatrix * mvPosition;
 }
@@ -233,7 +233,7 @@ export default function UnifiedParticles() {
       MOON_COUNT,
       0.7, // rimBias
       MOON_X,
-      MOON_END_Y, // target Y (final position)
+      0, // Y=0, shader applies uMoonRiseY offset
       MOON_Z,
     );
     for (let i = 0; i < MOON_COUNT; i++) {
