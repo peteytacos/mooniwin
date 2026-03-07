@@ -6,6 +6,8 @@ import * as THREE from "three";
 import { generateFigure } from "./figureData";
 import { generateMoonDots } from "./moonData";
 import { timeline, PHASES, progress, easeOut, easeInOut } from "./timeline";
+import { ripples } from "./ripples";
+import { shootingStars } from "./shootingStars";
 
 // Particle type constants (match shader)
 const TYPE_FIELD = 0;
@@ -107,9 +109,12 @@ uniform float uMoonRotation;    // Y-axis rotation angle (radians)
 uniform float uSpreadProgress;  // 0=all at origin, 1=at final positions
 uniform vec3 uMoonCenter;       // moon center (x, 0, z)
 uniform vec3 uMouseWorld;       // mouse position in world space
+uniform vec4 uRipples[4];      // xy=NDC origin, z=radius, w=fade (-1 z=inactive)
+uniform vec3 uStarPositions[4]; // shooting star world positions (999=inactive)
 
 varying float vOpacity;
 varying float vType;
+varying float vRippleBoost;
 
 // All dots originate from bottom-right corner
 const vec3 ORIGIN = vec3(14.0, -10.0, -5.0);
@@ -318,25 +323,67 @@ void main() {
     mvPosition = modelViewMatrix * vec4(pos, 1.0);
   }
 
+  // Shooting star scatter — same logic as mouse
+  for (int si = 0; si < 4; si++) {
+    if (uStarPositions[si].x > 900.0) continue;
+    vec4 starClip = projectionMatrix * viewMatrix * vec4(uStarPositions[si], 1.0);
+    vec2 starScreen = starClip.xy / starClip.w;
+    vec4 pClip = projectionMatrix * mvPosition;
+    vec2 pScreen = pClip.xy / pClip.w;
+    float sDist = distance(pScreen, starScreen);
+    float sRadius = 0.5;
+    if (sDist < sRadius) {
+      vec2 sAway = normalize(pScreen - starScreen);
+      float sStrength = 1.0 - smoothstep(0.0, sRadius, sDist);
+      sStrength *= sStrength;
+      float sNoiseAngle = snoise(vec3(phase * 5.0 + float(si), uTime * 3.0, sDist * 2.0)) * 6.28;
+      float sNoiseMag = 1.0 + snoise(vec3(phase * 8.0 + float(si), uTime * 2.0, 0.0)) * 0.7;
+      vec2 sChaotic = sAway * sNoiseMag + vec2(cos(sNoiseAngle), sin(sNoiseAngle)) * 0.5;
+      float sDepthScale = -mvPosition.z * 0.005;
+      pos.x += sChaotic.x * sStrength * sDepthScale;
+      pos.y += sChaotic.y * sStrength * sDepthScale;
+      mvPosition = modelViewMatrix * vec4(pos, 1.0);
+    }
+  }
+
   // Size attenuation by depth, clamped to avoid huge near-camera dots
   float baseSize = particleType < 0.5 ? 0.5 : 0.8;
   gl_PointSize = min(baseSize * (200.0 / -mvPosition.z), 3.0);
 
   gl_Position = projectionMatrix * mvPosition;
+
+  // Ripple glow — screen-space expanding ring
+  vec2 myNDC = gl_Position.xy / gl_Position.w;
+  float aspect = projectionMatrix[1][1] / projectionMatrix[0][0];
+  float rippleBoost = 0.0;
+  for (int i = 0; i < 4; i++) {
+    if (uRipples[i].z < 0.0) continue;
+    vec2 diff = myNDC - uRipples[i].xy;
+    diff.x *= aspect;
+    float dist = length(diff);
+    float ringWidth = 0.25 + uRipples[i].z * 0.08;
+    float ringDist = abs(dist - uRipples[i].z);
+    float ring = 1.0 - smoothstep(0.0, ringWidth, ringDist);
+    rippleBoost += ring * uRipples[i].w;
+  }
+  vRippleBoost = min(rippleBoost, 1.5);
 }
 `;
 
 const fragmentShader = /* glsl */ `
 varying float vOpacity;
 varying float vType;
+varying float vRippleBoost;
 
 void main() {
   // Soft circle
   float dist = length(gl_PointCoord - vec2(0.5));
   if (dist > 0.5) discard;
-  float alpha = smoothstep(0.5, 0.2, dist) * vOpacity;
+  float alpha = smoothstep(0.5, 0.2, dist) * (vOpacity + vRippleBoost * 1.2);
 
-  gl_FragColor = vec4(1.0, 1.0, 1.0, alpha);
+  // Warm moonlight tint on ripple
+  vec3 color = mix(vec3(1.0), vec3(1.0, 0.96, 0.88), vRippleBoost);
+  gl_FragColor = vec4(color, alpha);
 }
 `;
 
@@ -478,6 +525,22 @@ export default function UnifiedParticles() {
           uSpreadProgress: { value: 0 },
           uMoonCenter: { value: new THREE.Vector3(MOON_X, 0, MOON_Z) },
           uMouseWorld: { value: new THREE.Vector3(100, 100, 100) },
+          uStarPositions: {
+            value: [
+              new THREE.Vector3(999, 999, 999),
+              new THREE.Vector3(999, 999, 999),
+              new THREE.Vector3(999, 999, 999),
+              new THREE.Vector3(999, 999, 999),
+            ],
+          },
+          uRipples: {
+            value: [
+              new THREE.Vector4(0, 0, -1, 0),
+              new THREE.Vector4(0, 0, -1, 0),
+              new THREE.Vector4(0, 0, -1, 0),
+              new THREE.Vector4(0, 0, -1, 0),
+            ],
+          },
         },
         transparent: true,
         depthWrite: false,
@@ -534,6 +597,54 @@ export default function UnifiedParticles() {
 
     // Clockwise rotation (negative direction)
     mat.uniforms.uMoonRotation.value = -continuousTime.current * 0.08;
+
+    // Ripple update
+    const RIPPLE_SPEED = 1.2;
+    const RIPPLE_DURATION = 1.5;
+    for (let i = 0; i < 4; i++) {
+      const age = ripples.times[i];
+      if (age < 0) {
+        mat.uniforms.uRipples.value[i].set(0, 0, -1, 0);
+        continue;
+      }
+      ripples.times[i] += delta;
+      if (ripples.times[i] > RIPPLE_DURATION) {
+        ripples.times[i] = -1;
+        mat.uniforms.uRipples.value[i].set(0, 0, -1, 0);
+        continue;
+      }
+      const radius = ripples.times[i] * RIPPLE_SPEED;
+      const fade = 1 - ripples.times[i] / RIPPLE_DURATION;
+      mat.uniforms.uRipples.value[i].set(
+        ripples.ndcX[i],
+        ripples.ndcY[i],
+        radius,
+        fade,
+      );
+    }
+
+    // Shooting star positions — convert NDC to world space
+    for (let i = 0; i < 4; i++) {
+      const age = shootingStars.elapsed[i];
+      if (age < 0 || age > shootingStars.duration[i]) {
+        mat.uniforms.uStarPositions.value[i].set(999, 999, 999);
+        if (age >= 0) shootingStars.elapsed[i] = -1;
+        continue;
+      }
+      shootingStars.elapsed[i] += delta;
+      const ndc = shootingStars.getNDC(i);
+      if (!ndc) {
+        mat.uniforms.uStarPositions.value[i].set(999, 999, 999);
+        continue;
+      }
+      // Unproject NDC to world space at z=0 plane
+      const starNDC = new THREE.Vector3(ndc[0], ndc[1], 0.5);
+      starNDC.unproject(camera);
+      const starDir = starNDC.sub(camera.position).normalize();
+      const starT = -camera.position.z / starDir.z;
+      const starWorld = camera.position.clone().add(starDir.clone().multiplyScalar(starT));
+      mat.uniforms.uStarPositions.value[i].copy(starWorld);
+    }
 
     // Update figure R target positions (blend standing -> pointing)
     if (armProg > 0 && armProg < 1) {

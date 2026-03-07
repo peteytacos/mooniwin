@@ -1,6 +1,6 @@
 {
-  "name": "Moon I Win",
-  "short_name": "Moon I Win",
+  "name": "moon, i win!",
+  "short_name": "moon, i win!",
   "description": "The world's oldest daily moon game. Be the first to spot it.",
   "start_url": "/",
   "display": "standalone",
