@@ -42,20 +42,25 @@ const crawlLines = [
 
 // Project the moon's 3D bounds to screen-space pixel rect
 function useMoonScreenRect() {
-  const [rect, setRect] = useState({ width: 0, centerX: 0 });
+  const [rect, setRect] = useState({ width: 0, centerX: 0, isNarrow: false });
 
   useEffect(() => {
     const compute = () => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const aspect = vw / vh;
-      const isMobile = vw < 768;
-      const isTablet = vw >= 768 && vw < 1024;
+      const isNarrow = vw < 1130;
+
+      if (isNarrow) {
+        // Center text between figures (left) and moon (right)
+        setRect({ width: Math.min(280, vw * 0.28), centerX: vw / 2, isNarrow: true });
+        return;
+      }
 
       const baseFov = 50;
       const fov = aspect < 1 ? baseFov + (1 - aspect) * 30 : baseFov;
-      const moonRadius = isMobile ? 2.2 : isTablet ? 3.0 : 3.8;
-      const moonX = isMobile ? 0 : isTablet ? 1.0 : 2;
+      const moonRadius = 3.8;
+      const moonX = 2;
       const cameraZ = 10;
       const moonZ = -8;
       const dist = cameraZ - moonZ; // 18
@@ -69,7 +74,7 @@ function useMoonScreenRect() {
       // moonX=0 maps to screen center (vw/2), positive = right
       const centerX = (moonX / visibleWidth) * vw + vw / 2;
 
-      setRect({ width, centerX });
+      setRect({ width, centerX, isNarrow: false });
     };
 
     compute();
