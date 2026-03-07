@@ -270,8 +270,6 @@ export default function ClaimWinModal({
       try {
         await navigator.share({
           files: [file],
-          title: "Moon, I win!",
-          text: `Moon, I win! Better luck tomorrow, nerd\n${shareUrl}`,
           url: shareUrl,
         });
         return;
