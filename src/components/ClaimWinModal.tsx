@@ -47,8 +47,13 @@ export default function ClaimWinModal({
   }, [isOpen]);
 
   const fetchLocation = useCallback(() => {
+    const fallbackTimer = setTimeout(() => {
+      setLocation((prev) => (prev === "locating..." ? "Earth" : prev));
+    }, 5000);
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        clearTimeout(fallbackTimer);
         try {
           const res = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${pos.coords.latitude}&lon=${pos.coords.longitude}&format=json&zoom=10`
@@ -69,7 +74,10 @@ export default function ClaimWinModal({
           setLocation("Earth");
         }
       },
-      () => setLocation("Earth"),
+      () => {
+        clearTimeout(fallbackTimer);
+        setLocation("Earth");
+      },
       { enableHighAccuracy: false, timeout: 10000 }
     );
   }, []);

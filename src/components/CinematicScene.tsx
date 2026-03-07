@@ -287,14 +287,23 @@ export default function CinematicScene() {
     spawnToasterRef.current?.();
   }, []);
 
-  const handleChallenge = useCallback((e: React.MouseEvent) => {
+  const handleChallenge = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
+    spawnMoonBurstRef.current?.();
     const url = "https://mooniwin.com/";
+    if (navigator.share) {
+      try {
+        await navigator.share({ url });
+        return;
+      } catch {
+        /* user cancelled */
+      }
+    }
+    // Fallback: copy link to clipboard
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
-    spawnMoonBurstRef.current?.();
   }, []);
 
   return (
