@@ -259,17 +259,12 @@ export default function ClaimWinModal({
   }, [stopCamera, generateWinCard]);
 
   const handleShare = useCallback(async () => {
-    if (!cardBlob) return;
     const shareUrl = winId
       ? `https://mooniwin.com/w/${winId}`
       : "https://mooniwin.com/";
-    const file = new File([cardBlob], "moon-i-win.jpg", {
-      type: "image/jpeg",
-    });
-    if (navigator.canShare?.({ files: [file] })) {
+    if (navigator.share) {
       try {
         await navigator.share({
-          files: [file],
           url: shareUrl,
         });
         return;
@@ -277,14 +272,11 @@ export default function ClaimWinModal({
         /* user cancelled */
       }
     }
-    // Fallback: download image
-    if (cardImageUrl) {
-      const a = document.createElement("a");
-      a.href = cardImageUrl;
-      a.download = "moon-i-win.jpg";
-      a.click();
-    }
-  }, [cardBlob, cardImageUrl, winId]);
+    // Fallback: copy link to clipboard
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+    } catch {}
+  }, [winId]);
 
   const handleRetake = useCallback(() => {
     if (cardImageUrl) URL.revokeObjectURL(cardImageUrl);
