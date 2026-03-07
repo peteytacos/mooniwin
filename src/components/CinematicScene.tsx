@@ -4,6 +4,7 @@ import { Canvas } from "@react-three/fiber";
 import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import SceneContent from "./cinematic/SceneContent";
+import ClaimWinModal from "./ClaimWinModal";
 import { resetTimeline } from "./cinematic/timeline";
 import { ripples } from "./cinematic/ripples";
 import { shootingStars } from "./cinematic/shootingStars";
@@ -88,6 +89,7 @@ function useMoonScreenRect() {
 export default function CinematicScene() {
   const [showNav, setShowNav] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showClaimModal, setShowClaimModal] = useState(false);
   const cursorRef = useRef<HTMLDivElement>(null);
   const shootingStarContainer = useRef<HTMLDivElement>(null);
   const spawnToasterRef = useRef<(() => void) | null>(null);
@@ -385,7 +387,7 @@ export default function CinematicScene() {
                   {copied ? "link copied!" : "challenge someone"}
                 </button>
                 <button
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); setShowClaimModal(true); }}
                   className="text-sm sm:text-base font-medium text-white hover:text-white/80 transition-colors cursor-none"
                 >
                   claim your win
@@ -412,6 +414,8 @@ export default function CinematicScene() {
           </motion.button>
         )}
       </AnimatePresence>
+
+      <ClaimWinModal isOpen={showClaimModal} onClose={() => setShowClaimModal(false)} />
 
       {/* Custom cursor ring */}
       <div
