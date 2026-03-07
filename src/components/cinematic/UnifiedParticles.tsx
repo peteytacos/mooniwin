@@ -17,27 +17,26 @@ const TYPE_FIGURE_R = 3;
 
 // Responsive layout
 const SCREEN_W = typeof window !== "undefined" ? window.innerWidth : 1440;
-const IS_MOBILE = SCREEN_W < 768;
-const IS_TABLET = SCREEN_W >= 768 && SCREEN_W < 1024;
+const IS_NARROW = SCREEN_W < 1130;
 
 // Counts
-const FIELD_COUNT = IS_MOBILE ? 3000 : 5000;
-const MOON_COUNT = IS_MOBILE ? 6000 : 12000;
+const FIELD_COUNT = IS_NARROW ? 3000 : 5000;
+const MOON_COUNT = IS_NARROW ? 6000 : 12000;
 const FIGURE_COUNT = 755; // per figure, matching figureData.ts
 const TOTAL = FIELD_COUNT + MOON_COUNT + FIGURE_COUNT * 2;
 
 // Moon position — responsive
-const MOON_X = IS_MOBILE ? 0 : IS_TABLET ? 1.0 : 2;
+const MOON_X = IS_NARROW ? 3.0 : 2;
 const MOON_START_Y = -16;
-const MOON_END_Y = IS_MOBILE ? 2.8 : IS_TABLET ? 3.0 : 3.5;
+const MOON_END_Y = IS_NARROW ? 3.0 : 3.5;
 const MOON_Z = -8;
-const MOON_RADIUS = IS_MOBILE ? 2.2 : IS_TABLET ? 3.0 : 3.8;
+const MOON_RADIUS = IS_NARROW ? 2.5 : 3.8;
 
 // Figure positions — responsive
-const FIG_SCALE = IS_MOBILE ? 1.2 : IS_TABLET ? 1.5 : 1.8;
-const FIG_Y = IS_MOBILE ? -2.5 : IS_TABLET ? -2.8 : -3.2;
-const FIG1_X = IS_MOBILE ? -1.6 : IS_TABLET ? -2.8 : -4.0;
-const FIG2_X = IS_MOBILE ? -0.4 : IS_TABLET ? -1.5 : -2.6;
+const FIG_SCALE = IS_NARROW ? 1.5 : 1.8;
+const FIG_Y = IS_NARROW ? -2.8 : -3.2;
+const FIG1_X = IS_NARROW ? -3.0 : -4.0;
+const FIG2_X = IS_NARROW ? -1.8 : -2.6;
 
 // Simplex noise GLSL (3D) — embedded in vertex shader
 const SIMPLEX_NOISE_GLSL = /* glsl */ `
