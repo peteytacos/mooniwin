@@ -22,6 +22,16 @@ export default function ClaimWinModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [flash, setFlash] = useState(false);
   const [winId, setWinId] = useState<string | null>(null);
+  const [dotCount, setDotCount] = useState(1);
+
+  useEffect(() => {
+    if (step === "preview" && !winId) {
+      const interval = setInterval(() => {
+        setDotCount((d) => (d % 3) + 1);
+      }, 400);
+      return () => clearInterval(interval);
+    }
+  }, [step, winId]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -486,9 +496,10 @@ export default function ClaimWinModal({
                   <div className="px-4 pb-4 space-y-3">
                     <button
                       onClick={handleShare}
-                      className="w-full py-3 bg-black text-white font-bold rounded-lg border border-white/[0.15] hover:bg-white/[0.06] active:scale-[0.98] transition-all cursor-none text-sm tracking-tight"
+                      disabled={!winId}
+                      className="w-full py-3 bg-black text-white font-bold rounded-lg border border-white/[0.15] hover:bg-white/[0.06] active:scale-[0.98] transition-all cursor-none text-sm tracking-tight disabled:opacity-40 disabled:pointer-events-none"
                     >
-                      share your win
+                      {winId ? "share your win" : `generating link${".".repeat(dotCount)}`}
                     </button>
                     <button
                       onClick={handleRetake}
