@@ -41,6 +41,12 @@ export default function ClaimWinModal({
     locationRef.current = location;
   }, [location]);
 
+  // Fetch location as soon as modal opens
+  useEffect(() => {
+    if (isOpen) fetchLocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   const fetchLocation = useCallback(() => {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
@@ -96,7 +102,6 @@ export default function ClaimWinModal({
     }
     setCameraError(null);
     stopCamera();
-    fetchLocation();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -113,7 +118,7 @@ export default function ClaimWinModal({
         "Camera access is needed to capture your win. Please allow camera access and try again."
       );
     }
-  }, [facingMode, stopCamera, fetchLocation]);
+  }, [facingMode, stopCamera]);
 
   const flipCamera = useCallback(async () => {
     const newMode = facingMode === "environment" ? "user" : "environment";
