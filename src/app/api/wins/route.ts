@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   }
 
   const id = crypto.randomUUID().slice(0, 8);
-  const { url } = await put(`wins/${id}.jpg`, buffer, {
+  const { url } = await put(`wins/${id}.jpg`, Buffer.from(buffer), {
     access: "public",
     contentType: "image/jpeg",
   });
