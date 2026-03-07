@@ -6,6 +6,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
+  if (!/^[a-zA-Z0-9]+$/.test(id)) return { title: "Moon, I win!" };
   const { blobs } = await list({ prefix: `wins/${id}`, limit: 1 });
   const imageUrl = blobs[0]?.url;
 
@@ -32,6 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function WinPage({ params }: Props) {
   const { id } = await params;
+  if (!/^[a-zA-Z0-9]+$/.test(id)) redirect("/");
   const { blobs } = await list({ prefix: `wins/${id}`, limit: 1 });
 
   if (!blobs[0]) redirect("/");
