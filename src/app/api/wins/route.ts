@@ -1,5 +1,11 @@
 import { put } from "@vercel/blob";
+import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
@@ -7,9 +13,21 @@ const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 const rateLimit = new Map<string, number[]>();
 const RATE_WINDOW = 60_000; // 1 minute
 const RATE_MAX = 2; // 2 uploads per minute per IP
+let lastCleanup = Date.now();
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
+
+  // Periodically purge stale entries to prevent unbounded Map growth
+  if (now - lastCleanup > RATE_WINDOW) {
+    for (const [key, timestamps] of rateLimit) {
+      if (timestamps.every((t) => now - t >= RATE_WINDOW)) {
+        rateLimit.delete(key);
+      }
+    }
+    lastCleanup = now;
+  }
+
   const timestamps = rateLimit.get(ip) ?? [];
   const recent = timestamps.filter((t) => now - t < RATE_WINDOW);
   if (recent.length >= RATE_MAX) return true;
@@ -51,6 +69,13 @@ export async function POST(request: Request) {
     access: "public",
     contentType: "image/jpeg",
   });
+
+  // Increment counters — fire and forget, never block the response
+  const today = new Date().toISOString().slice(0, 10);
+  Promise.all([
+    redis.incr("wins:total"),
+    redis.incr(`wins:${today}`).then(() => redis.expire(`wins:${today}`, 48 * 60 * 60)),
+  ]).catch(() => {});
 
   return NextResponse.json({ id, imageUrl: url });
 }

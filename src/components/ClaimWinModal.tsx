@@ -23,15 +23,16 @@ export default function ClaimWinModal({
   const [flash, setFlash] = useState(false);
   const [winId, setWinId] = useState<string | null>(null);
   const [dotCount, setDotCount] = useState(1);
+  const [uploadFailed, setUploadFailed] = useState(false);
 
   useEffect(() => {
-    if (step === "preview" && !winId) {
+    if (step === "preview" && !winId && !uploadFailed) {
       const interval = setInterval(() => {
         setDotCount((d) => (d % 3) + 1);
       }, 400);
       return () => clearInterval(interval);
     }
-  }, [step, winId]);
+  }, [step, winId, uploadFailed]);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -255,12 +256,16 @@ export default function ClaimWinModal({
     setStep("preview");
 
     // Upload in background for shareable link
+    setUploadFailed(false);
     const fd = new FormData();
     fd.append("image", blob, "win.jpg");
     fetch("/api/wins", { method: "POST", body: fd })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error("upload failed");
+        return res.json();
+      })
       .then((data) => setWinId(data.id))
-      .catch(() => {});
+      .catch(() => setUploadFailed(true));
   }, []);
 
   const capturePhoto = useCallback(() => {
@@ -283,8 +288,8 @@ export default function ClaimWinModal({
 
   const handleShare = useCallback(async () => {
     const shareUrl = winId
-      ? `https://mooniwin.com/w/${winId}`
-      : "https://mooniwin.com/";
+      ? `${window.location.origin}/w/${winId}`
+      : window.location.origin + "/";
     if (navigator.share) {
       try {
         await navigator.share({
@@ -306,6 +311,7 @@ export default function ClaimWinModal({
     setCardImageUrl(null);
     setCardBlob(null);
     setWinId(null);
+    setUploadFailed(false);
     startCamera();
   }, [startCamera, cardImageUrl]);
 
@@ -317,6 +323,7 @@ export default function ClaimWinModal({
     setCardBlob(null);
     setWinId(null);
     setCameraError(null);
+    setUploadFailed(false);
     onClose();
   }, [stopCamera, onClose, cardImageUrl]);
 
@@ -509,10 +516,14 @@ export default function ClaimWinModal({
                   <div className="px-4 pb-4 space-y-3">
                     <button
                       onClick={handleShare}
-                      disabled={!winId}
+                      disabled={!winId && !uploadFailed}
                       className="w-full py-3 bg-black text-white font-bold rounded-lg border border-white/[0.15] hover:bg-white/[0.06] active:scale-[0.98] transition-all cursor-none text-sm tracking-tight disabled:opacity-40 disabled:pointer-events-none"
                     >
-                      {winId ? "share your win" : `generating link${".".repeat(dotCount)}`}
+                      {winId
+                        ? "share your win"
+                        : uploadFailed
+                          ? "share link (no card)"
+                          : `generating link${".".repeat(dotCount)}`}
                     </button>
                     <button
                       onClick={handleRetake}
