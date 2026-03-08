@@ -459,7 +459,7 @@ export default function CinematicScene() {
               &nbsp;&middot;&nbsp;
               {stats.totalWins.toLocaleString()} total wins
               &nbsp;&middot;&nbsp;
-              {stats.totalVisits.toLocaleString()} visits
+              {stats.totalVisits.toLocaleString()} total visits
             </p>
           </motion.footer>
         )}
