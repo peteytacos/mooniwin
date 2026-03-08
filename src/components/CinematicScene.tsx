@@ -428,23 +428,6 @@ export default function CinematicScene() {
         )}
       </AnimatePresence>
 
-      {/* Replay button */}
-      <AnimatePresence>
-        {showNav && (
-          <motion.button
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 0.4 }}
-            whileHover={{ opacity: 0.9 }}
-            transition={{ duration: 0.5 }}
-            onClick={handleReplay}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 sm:left-auto sm:translate-x-0 sm:right-8 sm:bottom-8 z-20 text-white/40 hover:text-white transition-colors text-xl cursor-none"
-            aria-label="Replay animation"
-          >
-            ↻
-          </motion.button>
-        )}
-      </AnimatePresence>
-
       {/* Stats footer */}
       <AnimatePresence>
         {showNav && stats && (
@@ -459,7 +442,7 @@ export default function CinematicScene() {
               &nbsp;&middot;&nbsp;
               {stats.totalWins.toLocaleString()} total wins
               &nbsp;&middot;&nbsp;
-              {stats.totalVisits.toLocaleString()} visits
+              {stats.totalVisits.toLocaleString()} total visits
             </p>
           </motion.footer>
         )}
