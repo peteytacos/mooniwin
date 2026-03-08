@@ -290,7 +290,7 @@ export default function CinematicScene() {
   const handleChallenge = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
     spawnMoonBurstRef.current?.();
-    const url = "https://mooniwin.com/";
+    const url = window.location.origin + "/";
     if (navigator.share) {
       try {
         await navigator.share({ url });
