@@ -86,10 +86,17 @@ function useMoonScreenRect() {
   return rect;
 }
 
+interface Stats {
+  winsToday: number;
+  totalWins: number;
+  totalVisits: number;
+}
+
 export default function CinematicScene() {
   const [showNav, setShowNav] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
+  const [stats, setStats] = useState<Stats | null>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const shootingStarContainer = useRef<HTMLDivElement>(null);
   const spawnToasterRef = useRef<(() => void) | null>(null);
@@ -105,6 +112,20 @@ export default function CinematicScene() {
     window.addEventListener("mousemove", onMove);
     return () => window.removeEventListener("mousemove", onMove);
   }, []);
+
+  // Fire-and-forget visit beacon on mount
+  useEffect(() => {
+    fetch("/api/visit", { method: "POST" }).catch(() => {});
+  }, []);
+
+  // Fetch stats when nav appears
+  useEffect(() => {
+    if (!showNav) return;
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then(setStats)
+      .catch(() => {});
+  }, [showNav]);
 
   // Shooting stars
   useEffect(() => {
@@ -421,6 +442,26 @@ export default function CinematicScene() {
           >
             ↻
           </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Stats footer */}
+      <AnimatePresence>
+        {showNav && stats && (
+          <motion.footer
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 1.5, delay: 0.5 }}
+            className="absolute bottom-0 left-0 right-0 z-10 flex justify-center pb-3 pointer-events-none"
+          >
+            <p className="text-white/25 text-xs tracking-widest select-none">
+              {stats.winsToday.toLocaleString()} wins today
+              &nbsp;&middot;&nbsp;
+              {stats.totalWins.toLocaleString()} total wins
+              &nbsp;&middot;&nbsp;
+              {stats.totalVisits.toLocaleString()} visits
+            </p>
+          </motion.footer>
         )}
       </AnimatePresence>
 

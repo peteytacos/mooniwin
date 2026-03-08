@@ -1,4 +1,5 @@
 import { put } from "@vercel/blob";
+import { kv } from "@vercel/kv";
 import { NextResponse } from "next/server";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
@@ -63,6 +64,13 @@ export async function POST(request: Request) {
     access: "public",
     contentType: "image/jpeg",
   });
+
+  // Increment counters — fire and forget, never block the response
+  const today = new Date().toISOString().slice(0, 10);
+  Promise.all([
+    kv.incr("wins:total"),
+    kv.incr(`wins:${today}`).then(() => kv.expire(`wins:${today}`, 48 * 60 * 60)),
+  ]).catch(() => {});
 
   return NextResponse.json({ id, imageUrl: url });
 }
