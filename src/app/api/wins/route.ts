@@ -3,8 +3,8 @@ import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
 
 const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL!,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+  url: process.env.moon_KV_REST_API_URL!,
+  token: process.env.moon_KV_REST_API_TOKEN!,
 });
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
