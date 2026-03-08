@@ -1,6 +1,11 @@
 import { put } from "@vercel/blob";
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const JPEG_MAGIC = [0xff, 0xd8, 0xff];
@@ -68,8 +73,8 @@ export async function POST(request: Request) {
   // Increment counters — fire and forget, never block the response
   const today = new Date().toISOString().slice(0, 10);
   Promise.all([
-    kv.incr("wins:total"),
-    kv.incr(`wins:${today}`).then(() => kv.expire(`wins:${today}`, 48 * 60 * 60)),
+    redis.incr("wins:total"),
+    redis.incr(`wins:${today}`).then(() => redis.expire(`wins:${today}`, 48 * 60 * 60)),
   ]).catch(() => {});
 
   return NextResponse.json({ id, imageUrl: url });

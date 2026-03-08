@@ -1,9 +1,14 @@
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 export async function POST() {
   try {
-    await kv.incr("visits:total");
+    await redis.incr("visits:total");
   } catch {
     // non-critical — never fail the page load
   }

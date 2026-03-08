@@ -1,5 +1,10 @@
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 import { NextResponse } from "next/server";
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
 
 function todayUtc() {
   return new Date().toISOString().slice(0, 10);
@@ -8,9 +13,9 @@ function todayUtc() {
 export async function GET() {
   try {
     const [winsToday, totalWins, totalVisits] = await Promise.all([
-      kv.get<number>(`wins:${todayUtc()}`),
-      kv.get<number>("wins:total"),
-      kv.get<number>("visits:total"),
+      redis.get<number>(`wins:${todayUtc()}`),
+      redis.get<number>("wins:total"),
+      redis.get<number>("visits:total"),
     ]);
 
     return NextResponse.json(
