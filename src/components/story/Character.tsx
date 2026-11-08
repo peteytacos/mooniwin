@@ -3,7 +3,8 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { toon } from "./toon";
+import { toon, rng } from "./toon";
+import { denim, canvasCloth, knit } from "./textures";
 import { story, samplePose, makeSampledPose, clamp, type SampledPose } from "./state";
 import type { Pose, ArmPose } from "./chapters";
 
@@ -26,12 +27,56 @@ const DIRS: Record<Exclude<ArmPose, "point">, (side: number, time: number) => TH
   rest: (s) => new THREE.Vector3(s * 0.22, -1, 0.06),
   up: (s) => new THREE.Vector3(s * 0.5, 1, 0.12),
   wave: (s, t) => new THREE.Vector3(s * (0.75 + 0.3 * Math.sin(t * 9)), 0.85, 0.2),
-  phone: (s) => new THREE.Vector3(s * 0.05, 0.75, 1),
+  phone: (s) => new THREE.Vector3(s * 0.15, -0.2, 1),
 };
 
 const Z = new THREE.Vector3(0, 0, 1);
 const tmpV = new THREE.Vector3();
 const tmpDir = new THREE.Vector3();
+
+// Real fabric: woven maps tinted by the outfit colour.
+const fabricCache = new Map<string, THREE.MeshPhysicalMaterial>();
+function fabric(color: string, kind: "denim" | "canvas" | "knit", rx = 3, ry = 3) {
+  const key = color + kind;
+  let m = fabricCache.get(key);
+  if (!m) {
+    const src = kind === "denim" ? denim() : kind === "knit" ? knit() : canvasCloth();
+    const map = src.map.clone();
+    const bump = src.bump.clone();
+    map.repeat.set(rx, ry);
+    bump.repeat.set(rx, ry);
+    map.needsUpdate = bump.needsUpdate = true;
+    m = new THREE.MeshPhysicalMaterial({
+      color,
+      map,
+      bumpMap: bump,
+      bumpScale: kind === "knit" ? 2.5 : 1,
+      roughness: 0.95,
+      sheen: 0.8,
+      sheenRoughness: 0.7,
+      sheenColor: new THREE.Color(color).lerp(new THREE.Color("#ffffff"), 0.3),
+    });
+    fabricCache.set(key, m);
+  }
+  return m;
+}
+
+/** Hair with volume: a cap whose surface is lifted into soft clumps. */
+function hairGeometry(r: number, coverage: number, seed: number) {
+  const g = new THREE.SphereGeometry(r, 40, 24, 0, Math.PI * 2, 0, Math.PI * coverage);
+  const p = g.attributes.position as THREE.BufferAttribute;
+  const rand = rng(seed);
+  const ph = [rand() * 9, rand() * 9, rand() * 9];
+  const v = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    const n = Math.sin(v.x * 90 + ph[0]) * Math.sin(v.y * 70 + ph[1]) * Math.sin(v.z * 80 + ph[2]);
+    v.multiplyScalar(1 + 0.06 + n * 0.035);
+    p.setXYZ(i, v.x, v.y, v.z);
+  }
+  g.computeVertexNormals();
+  return g;
+}
 
 // Shared body geometry (realistic adult proportions, ~1.78m tall).
 const lathe = (pts: [number, number][], seg = 36) =>
@@ -52,7 +97,8 @@ const GEO = {
   nose: new THREE.ConeGeometry(0.017, 0.045, 10),
   ear: new THREE.SphereGeometry(0.022, 10, 8),
   eye: new THREE.SphereGeometry(0.0115, 10, 8),
-  hairCap: new THREE.SphereGeometry(0.111, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.56),
+  hairCap: hairGeometry(0.106, 0.58, 7),
+  hairLong: hairGeometry(0.108, 0.8, 9),
   beanie: new THREE.SphereGeometry(0.118, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.5),
   hood: new THREE.SphereGeometry(0.135, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
 };
@@ -61,19 +107,23 @@ function Arm({
   side,
   look,
   armRef,
+  elbowRef,
   children,
 }: {
   side: 1 | -1;
   look: Look;
   armRef: React.RefObject<THREE.Group | null>;
+  elbowRef: React.RefObject<THREE.Group | null>;
   children?: React.ReactNode;
 }) {
   return (
     <group ref={armRef} position={[side * 0.205, 1.42, 0]}>
-      <mesh geometry={GEO.upper} position={[0, 0, 0.15]} rotation={[Math.PI / 2, 0, 0]} material={toon(look.coat)} />
-      <mesh geometry={GEO.fore} position={[0, -0.01, 0.41]} rotation={[Math.PI / 2 + 0.06, 0, 0]} material={toon(look.coat)} />
-      <mesh geometry={GEO.hand} position={[0, -0.02, 0.585]} scale={[0.75, 1.05, 1.2]} material={toon(look.skin, "skin")} />
-      {children}
+      <mesh geometry={GEO.upper} position={[0, 0, 0.15]} rotation={[Math.PI / 2, 0, 0]} material={fabric(look.coat, "canvas", 1, 1)} />
+      <group ref={elbowRef} position={[0, 0, 0.285]}>
+        <mesh geometry={GEO.fore} position={[0, 0, 0.125]} rotation={[Math.PI / 2, 0, 0]} material={fabric(look.coat, "canvas", 1, 1)} />
+        <mesh geometry={GEO.hand} position={[0, 0, 0.3]} scale={[0.75, 1.05, 1.2]} material={toon(look.skin, "skin")} />
+        {children}
+      </group>
     </group>
   );
 }
@@ -94,6 +144,8 @@ export default function Character({
   const legR = useRef<THREE.Group>(null);
   const armL = useRef<THREE.Group>(null);
   const armR = useRef<THREE.Group>(null);
+  const elbowL = useRef<THREE.Group>(null);
+  const elbowR = useRef<THREE.Group>(null);
   const phone = useRef<THREE.Group>(null);
   const poseRef = useRef<SampledPose>(makeSampledPose());
   const scale = look.scale ?? 1;
@@ -132,7 +184,9 @@ export default function Character({
     const stride = Math.sin(time * 10);
     const sp = pose.speed;
     if (bob.current) {
-      bob.current.position.y = Math.abs(stride) * 0.06 * sp + Math.sin(time * 2) * 0.008;
+      bob.current.position.y = Math.abs(stride) * 0.05 * sp + Math.sin(time * 1.6) * 0.004;
+      // idle weight shift (contrapposto) instead of standing ramrod straight
+      bob.current.rotation.z = Math.sin(time * 0.45 + pose.x) * 0.018 * (1 - sp);
     }
     if (legL.current) legL.current.rotation.x = stride * 0.7 * sp;
     if (legR.current) legR.current.rotation.x = -stride * 0.7 * sp;
@@ -161,10 +215,22 @@ export default function Character({
     aim(armL.current, 1, pose.armL);
     aim(armR.current, -1, pose.armR);
 
+    // elbows: relaxed bend at rest, straight when pointing, sharp for phone / wave
+    const BEND: Record<ArmPose, number> = { rest: 0.32, point: 0.04, up: 0.22, wave: 1.05, phone: 1.75 };
+    const bend = (grp: THREE.Group | null, w: Record<ArmPose, number>) => {
+      if (!grp) return;
+      let b = 0;
+      for (const k of Object.keys(w) as ArmPose[]) b += BEND[k] * w[k];
+      grp.rotation.x = -b;
+    };
+    bend(elbowL.current, pose.armL);
+    bend(elbowR.current, pose.armR);
+
     if (head.current) {
       const lookUp = pose.armR.point + pose.armR.phone * 0.8 + pose.armL.up * 0.4 + pose.armR.up * 0.3;
       head.current.rotation.x = -0.35 * clamp(lookUp);
-      head.current.rotation.z = Math.sin(time * 1.3) * 0.03;
+      head.current.rotation.z = 0.04 + Math.sin(time * 0.7 + pose.z) * 0.025;
+      head.current.rotation.y = Math.sin(time * 0.31 + pose.x) * 0.08 * (1 - lookUp);
     }
     if (phone.current) {
       const s = clamp(pose.armR.phone * 1.6 - 0.4);
@@ -180,15 +246,15 @@ export default function Character({
         {/* legs: thigh, shin, shoe */}
         {[1, -1].map((s) => (
           <group key={s} ref={s === 1 ? legL : legR} position={[s * 0.095, 0.93, 0]}>
-            <mesh geometry={GEO.thigh} position={[0, -0.2, 0]} material={toon(look.trousers)} />
-            <mesh geometry={GEO.shin} position={[0, -0.6, 0.005]} material={toon(look.trousers)} />
+            <mesh geometry={GEO.thigh} position={[0, -0.2, 0]} material={fabric(look.trousers, "denim", 2, 3)} />
+            <mesh geometry={GEO.shin} position={[0, -0.6, 0.005]} material={fabric(look.trousers, "denim", 2, 3)} />
             <mesh geometry={GEO.shoe} position={[0, -0.875, 0.05]} rotation={[Math.PI / 2, 0, 0]} scale={[1.05, 1, 0.8]} material={toon(dark, "paint")} />
           </group>
         ))}
-        <mesh geometry={GEO.pelvis} position={[0, 0.94, 0]} scale={[1.05, 0.62, 0.72]} material={toon(look.trousers)} />
+        <mesh geometry={GEO.pelvis} position={[0, 0.94, 0]} scale={[1.05, 0.62, 0.72]} material={fabric(look.trousers, "denim", 2, 3)} />
 
         {/* jacket / robe, flattened front-to-back like a real torso */}
-        <mesh geometry={look.robe ? GEO.robe : GEO.jacket} scale={[1, 1, 0.66]} material={toon(look.coat)} />
+        <mesh geometry={look.robe ? GEO.robe : GEO.jacket} scale={[1, 1, 0.66]} material={fabric(look.coat, "canvas", 4, 3)} />
         {!look.robe && (
           <>
             <mesh position={[0, 0.85, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 0.66, 1]} material={toon(look.coatTrim)}>
@@ -207,16 +273,16 @@ export default function Character({
         )}
 
         {/* scarf */}
-        <mesh position={[0, 1.49, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 0.8, 1]} material={toon(look.scarf)}>
+        <mesh position={[0, 1.49, 0]} rotation={[Math.PI / 2, 0, 0]} scale={[1, 0.8, 1]} material={fabric(look.scarf, "knit", 4, 2)}>
           <torusGeometry args={[0.078, 0.036, 10, 24]} />
         </mesh>
-        <mesh position={[0.05, 1.36, 0.1]} rotation={[0.15, 0, 0.12]} material={toon(look.scarf)}>
+        <mesh position={[0.05, 1.36, 0.1]} rotation={[0.15, 0, 0.12]} material={fabric(look.scarf, "knit", 4, 2)}>
           <boxGeometry args={[0.07, 0.24, 0.025]} />
         </mesh>
 
-        <Arm side={1} look={look} armRef={armL} />
-        <Arm side={-1} look={look} armRef={armR}>
-          <group ref={phone} position={[0, 0.06, 0.63]} rotation={[-0.3, 0, 0]}>
+        <Arm side={1} look={look} armRef={armL} elbowRef={elbowL} />
+        <Arm side={-1} look={look} armRef={armR} elbowRef={elbowR}>
+          <group ref={phone} position={[0, 0.05, 0.36]} rotation={[-1.2, 0, 0]}>
             <mesh material={toon("#1a1a22", "metal")}>
               <boxGeometry args={[0.075, 0.15, 0.009]} />
             </mesh>
@@ -253,12 +319,12 @@ export default function Character({
             <boxGeometry args={[0.032, 0.005, 0.006]} />
           </mesh>
           {look.hat !== "hood" && (
-            <mesh geometry={GEO.hairCap} position={[0, 0.03, -0.012]} rotation={[-0.42, 0, 0]} material={toon(look.hair)} />
+            <mesh geometry={look.hat === "bun" ? GEO.hairLong : GEO.hairCap} position={[0, 0.03, -0.012]} rotation={[-0.42, 0, 0]} material={toon(look.hair)} />
           )}
           {look.hat === "beanie" && (
             <group position={[0, 0.045, -0.008]} rotation={[-0.22, 0, 0.06]}>
-              <mesh geometry={GEO.beanie} scale={[0.96, 1.06, 1]} material={toon(look.hatColor ?? "#d33")} />
-              <mesh rotation={[Math.PI / 2, 0, 0]} material={toon(look.hatColor ?? "#d33")}>
+              <mesh geometry={GEO.beanie} scale={[0.96, 1.06, 1]} material={fabric(look.hatColor ?? "#d33", "knit", 6, 3)} />
+              <mesh rotation={[Math.PI / 2, 0, 0]} material={fabric(look.hatColor ?? "#d33", "knit", 6, 3)}>
                 <torusGeometry args={[0.112, 0.018, 8, 32]} />
               </mesh>
             </group>
@@ -274,7 +340,7 @@ export default function Character({
             </>
           )}
           {look.hat === "hood" && (
-            <mesh geometry={GEO.hood} position={[0, 0.0, -0.02]} rotation={[-0.5, 0, 0]} material={toon(look.hatColor ?? look.coat)} />
+            <mesh geometry={GEO.hood} position={[0, 0.0, -0.02]} rotation={[-0.5, 0, 0]} material={fabric(look.hatColor ?? look.coat, "canvas", 3, 3)} />
           )}
         </group>
       </group>

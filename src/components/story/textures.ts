@@ -264,3 +264,75 @@ export function repeat<T extends { map: THREE.Texture; bump: THREE.Texture }>(t:
   map.needsUpdate = bump.needsUpdate = true;
   return { ...t, map, bump };
 }
+
+/** Neutral twill weave (denim-like); tint with material colour. */
+export const denim = () =>
+  make("denim", 256, (ctx, bump, s, rand) => {
+    ctx.fillStyle = "#c8ccd4";
+    ctx.fillRect(0, 0, s, s);
+    bump.fillStyle = "#808080";
+    bump.fillRect(0, 0, s, s);
+    // diagonal twill lines
+    for (let i = -s; i < s * 2; i += 3) {
+      const v = 160 + rand() * 60;
+      ctx.strokeStyle = `rgba(${v},${v + 5},${v + 15},0.55)`;
+      bump.strokeStyle = rand() < 0.5 ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)";
+      ctx.lineWidth = bump.lineWidth = 1.3;
+      ctx.beginPath();
+      bump.beginPath();
+      ctx.moveTo(i, 0);
+      bump.moveTo(i, 0);
+      ctx.lineTo(i + s, s);
+      bump.lineTo(i + s, s);
+      ctx.stroke();
+      bump.stroke();
+    }
+    speckle(ctx, s, rand, 500, () => `rgba(255,255,255,${0.04 + rand() * 0.08})`, [1, 4]);
+  }, 91);
+
+/** Neutral plain-weave canvas for jackets. */
+export const canvasCloth = () =>
+  make("canvas", 256, (ctx, bump, s, rand) => {
+    ctx.fillStyle = "#d0d0d0";
+    ctx.fillRect(0, 0, s, s);
+    bump.fillStyle = "#808080";
+    bump.fillRect(0, 0, s, s);
+    for (let y = 0; y < s; y += 2) {
+      const v = 190 + rand() * 40;
+      ctx.fillStyle = `rgba(${v},${v},${v},0.5)`;
+      ctx.fillRect(0, y, s, 1);
+      bump.fillStyle = `rgba(255,255,255,${0.15 + rand() * 0.1})`;
+      bump.fillRect(0, y, s, 1);
+    }
+    for (let x = 0; x < s; x += 2) {
+      bump.fillStyle = `rgba(0,0,0,${0.12 + rand() * 0.1})`;
+      bump.fillRect(x, 0, 1, s);
+    }
+    speckle(ctx, s, rand, 300, () => `rgba(90,90,90,${0.05 + rand() * 0.06})`, [2, 10]);
+  }, 101);
+
+/** Ribbed knit for beanies and scarves. */
+export const knit = () =>
+  make("knit", 128, (ctx, bump, s, rand) => {
+    ctx.fillStyle = "#d6d6d6";
+    ctx.fillRect(0, 0, s, s);
+    bump.fillStyle = "#000";
+    bump.fillRect(0, 0, s, s);
+    const w = 8;
+    for (let x = 0; x < s; x += w) {
+      for (let y = 0; y < s; y += 6) {
+        const v = 200 + rand() * 40;
+        ctx.fillStyle = `rgb(${v},${v},${v})`;
+        ctx.beginPath();
+        ctx.ellipse(x + w / 2, y + 3, w * 0.42, 3.4, 0, 0, Math.PI * 2);
+        ctx.fill();
+        const g = bump.createRadialGradient(x + w / 2, y + 3, 0, x + w / 2, y + 3, w * 0.5);
+        g.addColorStop(0, "#fff");
+        g.addColorStop(1, "#000");
+        bump.fillStyle = g;
+        bump.beginPath();
+        bump.ellipse(x + w / 2, y + 3, w * 0.45, 3.5, 0, 0, Math.PI * 2);
+        bump.fill();
+      }
+    }
+  }, 111);
