@@ -195,7 +195,7 @@ export const chapters: Chapter[] = [
   },
   {
     id: "everyone",
-    lines: ["everyone in your group", "has to be outside."],
+    lines: ["everyone who's playing", "must be outside."],
     align: "right",
     camera: { pos: [-6.4, 1.7, 4.8], look: [-5.2, 1.3, -1.2] },
     palette: moonlit,

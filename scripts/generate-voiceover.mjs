@@ -40,7 +40,7 @@ const LINES = {
   point: "Then point at the moon, and say: Moon I Win!",
   victory: "And enjoy your victory, for the rest of the day.",
   fake: "A few more things. Fake moon sightings don't count. Call one, and you're out for the day.",
-  everyone: "Everyone in your group has to be outside.",
+  everyone: "Everyone who's playing must be outside.",
   trick: "Tricking someone to come outside is very much encouraged.",
   text: "And if you must text someone a photo of the moon... that's allowed.",
   luck: "Enjoy yourselves, and good luck.",
