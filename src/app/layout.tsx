@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
+import { Anton } from "next/font/google";
 import "./globals.css";
+
+const display = Anton({ weight: "400", subsets: ["latin"], variable: "--font-anton" });
 
 export const metadata: Metadata = {
   title: "moon, i win!",
@@ -31,7 +34,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#030712",
+  themeColor: "#05070f",
 };
 
 export default function RootLayout({
@@ -42,7 +45,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} antialiased bg-[#030712] text-white`}
+        className={`${GeistSans.variable} ${GeistMono.variable} ${display.variable} antialiased bg-[#05070f] text-white`}
       >
         {children}
       </body>

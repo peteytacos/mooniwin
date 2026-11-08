@@ -2,14 +2,14 @@
 
 import dynamic from "next/dynamic";
 
-const CinematicScene = dynamic(() => import("@/components/CinematicScene"), {
+const StoryExperience = dynamic(() => import("@/components/story/StoryExperience"), {
   ssr: false,
 });
 
 export default function Home() {
   return (
-    <main className="bg-black">
-      <CinematicScene />
+    <main className="bg-[#05070f]">
+      <StoryExperience />
     </main>
   );
 }
