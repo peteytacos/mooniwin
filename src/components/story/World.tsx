@@ -9,6 +9,8 @@ import {
   Noise,
   ChromaticAberration,
   ToneMapping,
+  N8AO,
+  SMAA,
   HueSaturation,
   BrightnessContrast,
 } from "@react-three/postprocessing";
@@ -47,7 +49,12 @@ const lookAt = new THREE.Vector3();
 const smoothPointer = new THREE.Vector2();
 const lightDir = new THREE.Vector3();
 const heroNow = makeSampledPose();
+const friendNow = makeSampledPose();
 const heroHead = new THREE.Vector3();
+const friendHead = new THREE.Vector3();
+const center = new THREE.Vector3();
+const viewDir = new THREE.Vector3();
+const side = new THREE.Vector3();
 const back = new THREE.Vector3();
 const offset = new THREE.Vector2(0.0007, 0.0005);
 
@@ -82,17 +89,41 @@ function Director() {
     curves.pos.getPoint(u, camera.position);
     curves.look.getPoint(u, lookAt);
 
-    const portrait = clamp((1 - size.width / size.height) / 0.5);
+    // Portrait screens: keep both leads in frame — aim between them and pull
+    // back until their spread fits the narrow horizontal field of view.
+    const aspect0 = size.width / size.height;
+    const portrait = clamp((1 - aspect0) / 0.5);
     if (portrait > 0) {
       samplePose(heroPoses, story.t, heroNow);
-      if (heroNow.visible) {
-        heroHead.set(heroNow.x, 1.3, heroNow.z);
-        lookAt.lerp(heroHead, 0.7 * portrait);
+      samplePose(friendPoses, story.t, friendNow);
+      const subjects: THREE.Vector3[] = [];
+      if (heroNow.visible) subjects.push(heroHead.set(heroNow.x, 1.2, heroNow.z));
+      // the friend counts unless hidden deep inside the cottage
+      const insideCottage = friendNow.x > -9.5 && friendNow.x < -4.5 && friendNow.z > -5 && friendNow.z < -2.1;
+      if (friendNow.visible && !insideCottage) subjects.push(friendHead.set(friendNow.x, 1.2, friendNow.z));
+      if (subjects.length) {
+        center.set(0, 0, 0);
+        subjects.forEach((v) => center.add(v));
+        center.divideScalar(subjects.length);
+        lookAt.lerp(center, 0.75 * portrait);
       }
       back.subVectors(camera.position, lookAt);
       back.y = 0;
       back.normalize();
-      camera.position.addScaledVector(back, 4 * portrait);
+      let push = 3 * portrait;
+      if (subjects.length) {
+        const cam0 = camera as THREE.PerspectiveCamera;
+        const vfov = THREE.MathUtils.degToRad(44 + (1 - aspect0) * 24);
+        const hfov = 2 * Math.atan(Math.tan(vfov / 2) * aspect0);
+        viewDir.subVectors(lookAt, camera.position).normalize();
+        side.crossVectors(viewDir, cam0.up).normalize();
+        let spread = 0;
+        for (const v of subjects) spread = Math.max(spread, Math.abs(side.dot(v.clone().sub(center))));
+        const need = (spread + 1.4) / Math.tan(hfov / 2);
+        const have = camera.position.distanceTo(center);
+        push = Math.max(push, Math.min(14, need - have) * portrait);
+      }
+      camera.position.addScaledVector(back, push);
     }
 
     // handheld camera: slow drift + micro shake + pointer parallax
@@ -166,7 +197,7 @@ function Lights({ lite }: { lite: boolean }) {
   });
   return (
     <>
-      <directionalLight ref={key} castShadow shadow-mapSize={lite ? [1024, 1024] : [2048, 2048]} />
+      <directionalLight ref={key} castShadow shadow-mapSize={lite ? [2048, 2048] : [4096, 4096]} />
       <hemisphereLight ref={hemi} />
       <directionalLight ref={fill} />
     </>
@@ -208,6 +239,7 @@ export default function World({ lite }: { lite: boolean }) {
       <Character look={friendLook} track={friendPoses} />
       <ShadowSetup />
       <EffectComposer multisampling={lite ? 0 : 4}>
+        {lite ? <SMAA /> : <N8AO aoRadius={1.2} distanceFalloff={0.6} intensity={2.2} halfRes quality="medium" />}
         <Bloom intensity={0.75} luminanceThreshold={1.0} luminanceSmoothing={0.3} mipmapBlur radius={0.8} />
         <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
         <HueSaturation saturation={0.1} />

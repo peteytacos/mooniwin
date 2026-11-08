@@ -26,7 +26,7 @@ function inCottage(x: number, z: number, pad = 0) {
 // ── Ground ─────────────────────────────────────────────────────────────────
 function Ground() {
   const geo = useMemo(() => {
-    const g = new THREE.PlaneGeometry(520, 520, 220, 220);
+    const g = new THREE.PlaneGeometry(520, 520, 300, 300);
     g.rotateX(-Math.PI / 2);
     const p = g.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < p.count; i++) p.setY(i, groundHeight(p.getX(i), p.getZ(i)));
@@ -512,8 +512,8 @@ export default function Nature({ lite }: { lite: boolean }) {
   return (
     <>
       <Ground />
-      <Grass count={lite ? 30000 : 90000} />
-      <Forest cedars={lite ? 140 : 240} broadleaf={lite ? 14 : 22} />
+      <Grass count={lite ? 40000 : 140000} />
+      <Forest cedars={lite ? 180 : 320} broadleaf={lite ? 18 : 30} />
       <Spirits count={lite ? 90 : 180} />
     </>
   );

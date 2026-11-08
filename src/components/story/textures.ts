@@ -21,7 +21,7 @@ function make(key: string, size: number, paint: Painter, seed = 1) {
   const bump = new THREE.CanvasTexture(b);
   for (const t of [map, bump]) {
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
-    t.anisotropy = 8;
+    t.anisotropy = 16;
   }
   const out = { map, bump };
   cache.set(key, out);
@@ -40,13 +40,13 @@ function speckle(ctx: CanvasRenderingContext2D, size: number, rand: () => number
 
 /** Lime plaster with blotchy weathering and hairline cracks. */
 export const plaster = () =>
-  make("plaster", 512, (ctx, bump, s, rand) => {
+  make("plaster", 1024, (ctx, bump, s, rand) => {
     ctx.fillStyle = "#d9cdb6";
     ctx.fillRect(0, 0, s, s);
     bump.fillStyle = "#808080";
     bump.fillRect(0, 0, s, s);
-    speckle(ctx, s, rand, 900, () => `rgba(${120 + rand() * 60},${105 + rand() * 50},${80 + rand() * 40},${0.04 + rand() * 0.06})`, [8, 40]);
-    speckle(bump, s, rand, 6000, () => `rgba(${rand() < 0.5 ? 0 : 255},${rand() < 0.5 ? 0 : 255},${rand() < 0.5 ? 0 : 255},0.08)`, [0.5, 2.5]);
+    speckle(ctx, s, rand, 3600, () => `rgba(${120 + rand() * 60},${105 + rand() * 50},${80 + rand() * 40},${0.04 + rand() * 0.06})`, [8, 40]);
+    speckle(bump, s, rand, 24000, () => `rgba(${rand() < 0.5 ? 0 : 255},${rand() < 0.5 ? 0 : 255},${rand() < 0.5 ? 0 : 255},0.08)`, [0.5, 2.5]);
     // damp staining near the bottom
     const g = ctx.createLinearGradient(0, s * 0.7, 0, s);
     g.addColorStop(0, "rgba(70,60,45,0)");
@@ -75,7 +75,7 @@ export const plaster = () =>
 
 /** Overlapping clay roof tiles. */
 export const roofTiles = () =>
-  make("roof", 512, (ctx, bump, s, rand) => {
+  make("roof", 1024, (ctx, bump, s, rand) => {
     const rows = 16, cols = 10;
     const h = s / rows, w = s / cols;
     ctx.fillStyle = "#4a2018";
@@ -144,17 +144,17 @@ export const planks = () =>
 
 /** Granite / weathered standing stone. */
 export const stone = () =>
-  make("stone", 512, (ctx, bump, s, rand) => {
+  make("stone", 1024, (ctx, bump, s, rand) => {
     ctx.fillStyle = "#77736c";
     ctx.fillRect(0, 0, s, s);
     bump.fillStyle = "#808080";
     bump.fillRect(0, 0, s, s);
-    speckle(ctx, s, rand, 1400, () => {
+    speckle(ctx, s, rand, 5600, () => {
       const v = 70 + rand() * 80;
       return `rgba(${v},${v - 3},${v - 8},0.25)`;
     }, [2, 30]);
-    speckle(ctx, s, rand, 300, () => `rgba(${100 + rand() * 40},${120 + rand() * 30},70,${0.15 + rand() * 0.2})`, [4, 22]);
-    speckle(bump, s, rand, 5000, () => (rand() < 0.5 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)"), [1, 10]);
+    speckle(ctx, s, rand, 1200, () => `rgba(${100 + rand() * 40},${120 + rand() * 30},70,${0.15 + rand() * 0.2})`, [4, 22]);
+    speckle(bump, s, rand, 20000, () => (rand() < 0.5 ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)"), [1, 10]);
   }, 41);
 
 /** Rough bark. */
@@ -243,16 +243,16 @@ export const leaves = () =>
 
 /** Ground detail: grass/earth mottling for the terrain. */
 export const earth = () =>
-  make("earth", 512, (ctx, bump, s, rand) => {
+  make("earth", 1024, (ctx, bump, s, rand) => {
     ctx.fillStyle = "#808070";
     ctx.fillRect(0, 0, s, s);
     bump.fillStyle = "#808080";
     bump.fillRect(0, 0, s, s);
-    speckle(ctx, s, rand, 2500, () => {
+    speckle(ctx, s, rand, 10000, () => {
       const v = rand();
       return v < 0.5 ? `rgba(90,110,60,0.18)` : `rgba(120,100,70,0.16)`;
     }, [2, 18]);
-    speckle(bump, s, rand, 7000, () => (rand() < 0.5 ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)"), [0.5, 3]);
+    speckle(bump, s, rand, 28000, () => (rand() < 0.5 ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)"), [0.5, 3]);
   }, 81);
 
 export function repeat<T extends { map: THREE.Texture; bump: THREE.Texture }>(t: T, x: number, y: number): T {

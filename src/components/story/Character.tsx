@@ -16,6 +16,7 @@ export interface Look {
   hair: string;
   scarf: string;
   hat?: "beanie" | "bun" | "hood";
+  iris?: string;
   hatColor?: string;
   robe?: boolean; // long robe down to the ground (ancients)
   staff?: boolean;
@@ -78,6 +79,114 @@ function hairGeometry(r: number, coverage: number, seed: number) {
   return g;
 }
 
+// ── Sculpted head ──────────────────────────────────────────────────────────
+// A dense sphere pushed and pulled into a face: skull, jaw, sockets, brow,
+// cheekbones, nose, lips, chin. Skin tone variation is baked into vertex colours.
+const g2 = (x: number, y: number, cx: number, cy: number, s: number) =>
+  Math.exp(-((x - cx) ** 2 + (y - cy) ** 2) / s);
+const headCache = new Map<string, THREE.BufferGeometry>();
+function headGeometry(skin: string, femme: boolean) {
+  const key = skin + femme;
+  const hit = headCache.get(key);
+  if (hit) return hit;
+  const g = new THREE.SphereGeometry(0.1, 128, 96);
+  const p = g.attributes.position as THREE.BufferAttribute;
+  const cols = new Float32Array(p.count * 3);
+  const base = new THREE.Color(skin);
+  const lip = new THREE.Color(skin).lerp(new THREE.Color(femme ? "#b5525a" : "#a0504a"), 0.55);
+  const blush = new THREE.Color(skin).lerp(new THREE.Color("#d9776a"), 0.28);
+  const shadow = new THREE.Color(skin).multiplyScalar(0.82);
+  const c = new THREE.Color();
+  const v = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i);
+    n.copy(v).normalize();
+    let { x, y, z } = v;
+    // skull: taller, narrower, fuller at the back
+    y *= 1.13;
+    x *= 0.86;
+    if (z < 0) z *= 1.06;
+    // jaw + chin taper below the cheekbones
+    if (y < -0.01) {
+      const k = Math.min(1, (-y - 0.01) / 0.1);
+      x *= 1 - k * (femme ? 0.42 : 0.34);
+      z = z * (1 - k * 0.18) + (z > 0 ? k * 0.006 : 0);
+    }
+    const front = THREE.MathUtils.smoothstep(n.z, 0.15, 0.6);
+    let d = 0;
+    // eye sockets + brow ridge
+    d -= 0.0095 * (g2(x, y, 0.031, 0.016, 0.00028) + g2(x, y, -0.031, 0.016, 0.00028));
+    d += (femme ? 0.0025 : 0.0045) * Math.exp(-((y - 0.038) ** 2) / 0.00012) * Math.exp(-(x * x) / 0.0028);
+    // cheekbones
+    d += 0.0045 * (g2(x, y, 0.047, -0.008, 0.0004) + g2(x, y, -0.047, -0.008, 0.0004));
+    // nose: bridge → tip, then nostril wings
+    const bridge = Math.exp(-(x * x) / (femme ? 0.00009 : 0.00012));
+    const t = THREE.MathUtils.clamp((0.03 - y) / 0.05, 0, 1);
+    const below = y < -0.02 ? Math.exp(-((y + 0.02) ** 2) / 0.00004) : 1;
+    d += bridge * (0.004 + t * t * (femme ? 0.021 : 0.026)) * below * (y < 0.032 ? 1 : 0.4);
+    d += 0.006 * (g2(x, y, 0.013, -0.021, 0.00005) + g2(x, y, -0.013, -0.021, 0.00005));
+    // lips + philtrum + mouth line + chin
+    const lipW = Math.exp(-(x * x) / 0.0005);
+    d += lipW * (0.0055 * Math.exp(-((y + 0.043) ** 2) / 0.00002) + 0.0065 * Math.exp(-((y + 0.054) ** 2) / 0.000025));
+    d -= lipW * 0.0035 * Math.exp(-((y + 0.0485) ** 2) / 0.000003);
+    d += 0.006 * g2(x, y, 0, -0.083, 0.0004);
+    d -= 0.002 * g2(x, y, 0, -0.068, 0.00008);
+    v.set(x, y, z).addScaledVector(n, d * front);
+    p.setXYZ(i, v.x, v.y, v.z);
+
+    // skin tone: rosier cheeks + lips, slightly deeper around the sockets
+    c.copy(base);
+    const cheek = front * (g2(x, y, 0.045, -0.025, 0.0006) + g2(x, y, -0.045, -0.025, 0.0006));
+    c.lerp(blush, Math.min(1, cheek));
+    const lipMask = front * lipW * (Math.exp(-((y + 0.043) ** 2) / 0.00003) + Math.exp(-((y + 0.055) ** 2) / 0.00004));
+    c.lerp(lip, Math.min(1, lipMask * 1.2));
+    const sock = front * (g2(x, y, 0.031, 0.016, 0.0002) + g2(x, y, -0.031, 0.016, 0.0002));
+    c.lerp(shadow, Math.min(0.7, sock));
+    cols[i * 3] = c.r;
+    cols[i * 3 + 1] = c.g;
+    cols[i * 3 + 2] = c.b;
+  }
+  g.setAttribute("color", new THREE.BufferAttribute(cols, 3));
+  g.computeVertexNormals();
+  headCache.set(key, g);
+  return g;
+}
+const headSkin = new THREE.MeshPhysicalMaterial({
+  vertexColors: true,
+  roughness: 0.52,
+  clearcoat: 0.12,
+  clearcoatRoughness: 0.55,
+  sheen: 0.5,
+  sheenRoughness: 0.5,
+  sheenColor: new THREE.Color("#ffb4a0"),
+});
+const sclera = new THREE.MeshPhysicalMaterial({ color: "#efe9e2", roughness: 0.15, clearcoat: 1, clearcoatRoughness: 0.05 });
+const pupil = new THREE.MeshStandardMaterial({ color: "#050505", roughness: 0.1 });
+
+function Eye({ side, iris, skin }: { side: 1 | -1; iris: string; skin: string }) {
+  return (
+    <group position={[side * 0.0305, 0.0155, 0.0735]}>
+      <mesh material={sclera}>
+        <sphereGeometry args={[0.0118, 24, 18]} />
+      </mesh>
+      <mesh position={[0, 0, 0.0098]} material={toon(iris, "metal")}>
+        <circleGeometry args={[0.0058, 24]} />
+      </mesh>
+      <mesh position={[0, 0, 0.0101]} material={pupil}>
+        <circleGeometry args={[0.0025, 20]} />
+      </mesh>
+      {/* upper + lower lids */}
+      <mesh rotation={[-0.35, 0, 0]} material={toon(skin, "skin")}>
+        <sphereGeometry args={[0.0128, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42]} />
+      </mesh>
+      <mesh rotation={[Math.PI + 0.45, 0, 0]} material={toon(skin, "skin")}>
+        <sphereGeometry args={[0.0124, 24, 8, 0, Math.PI * 2, 0, Math.PI * 0.22]} />
+      </mesh>
+    </group>
+  );
+}
+
 // Shared body geometry (realistic adult proportions, ~1.78m tall).
 const lathe = (pts: [number, number][], seg = 36) =>
   new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
@@ -103,6 +212,42 @@ const GEO = {
   hood: new THREE.SphereGeometry(0.135, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
 };
 
+// ── Hands: palm, two-segment fingers, thumb. Curl is driven per frame. ──
+export type FingerRig = { index: THREE.Group[]; rest: THREE.Group[]; thumb: THREE.Group | null };
+const FINGER = new THREE.CapsuleGeometry(0.0072, 0.022, 4, 8);
+const FINGER_TIP = new THREE.CapsuleGeometry(0.0066, 0.016, 4, 8);
+function Hand({ side, skin }: { side: 1 | -1; skin: string }) {
+  const m = toon(skin, "skin");
+  // palm faces the body (local -side·X); fingers run along +Z
+  const fingers = [0.022, 0.0075, -0.0075, -0.021];
+  const lengths = [1.0, 1.08, 1.0, 0.82];
+  return (
+    <group position={[0, 0, 0.275]}>
+      <mesh position={[0, 0, 0.032]} scale={[0.34, 0.92, 1.05]} material={m}>
+        <sphereGeometry args={[0.04, 20, 14]} />
+      </mesh>
+      {fingers.map((y, i) => (
+        <group
+          key={i}
+          position={[0, y, 0.07]}
+          name={i === 0 ? `index${side}` : `finger${side}_${i}`}
+        >
+          <mesh geometry={FINGER} position={[0, 0, 0.016 * lengths[i]]} rotation={[Math.PI / 2, 0, 0]} scale={[1, lengths[i], 1]} material={m} />
+          <group position={[0, 0, 0.032 * lengths[i]]} name="tip">
+            <mesh geometry={FINGER_TIP} position={[0, 0, 0.012]} rotation={[Math.PI / 2, 0, 0]} scale={[0.95, lengths[i], 0.95]} material={m} />
+          </group>
+        </group>
+      ))}
+      <group
+        position={[-side * 0.008, 0.03, 0.022]}
+        rotation={[0.5, -side * 0.6, 0]}
+      >
+        <mesh geometry={FINGER} position={[0, 0, 0.018]} rotation={[Math.PI / 2, 0, 0]} scale={[1.2, 1.05, 1.2]} material={m} />
+      </group>
+    </group>
+  );
+}
+
 function Arm({
   side,
   look,
@@ -121,7 +266,7 @@ function Arm({
       <mesh geometry={GEO.upper} position={[0, 0, 0.15]} rotation={[Math.PI / 2, 0, 0]} material={fabric(look.coat, "canvas", 1, 1)} />
       <group ref={elbowRef} position={[0, 0, 0.285]}>
         <mesh geometry={GEO.fore} position={[0, 0, 0.125]} rotation={[Math.PI / 2, 0, 0]} material={fabric(look.coat, "canvas", 1, 1)} />
-        <mesh geometry={GEO.hand} position={[0, 0, 0.3]} scale={[0.75, 1.05, 1.2]} material={toon(look.skin, "skin")} />
+        <Hand side={side} skin={look.skin} />
         {children}
       </group>
     </group>
@@ -146,6 +291,7 @@ export default function Character({
   const armR = useRef<THREE.Group>(null);
   const elbowL = useRef<THREE.Group>(null);
   const elbowR = useRef<THREE.Group>(null);
+  const rig = useRef<FingerRig>({ index: [], rest: [], thumb: null });
   const phone = useRef<THREE.Group>(null);
   const poseRef = useRef<SampledPose>(makeSampledPose());
   const scale = look.scale ?? 1;
@@ -226,6 +372,38 @@ export default function Character({
     bend(elbowL.current, pose.armL);
     bend(elbowR.current, pose.armR);
 
+    // fingers: relaxed curl, open for wave/cheer, grip for phone, index out to point
+    const CURL: Record<ArmPose, number> = { rest: 0.55, point: 1.35, up: 0.15, wave: 0.1, phone: 1.15 };
+    const curlFor = (w: Record<ArmPose, number>, indexFinger: boolean) => {
+      let c = 0;
+      for (const k of Object.keys(w) as ArmPose[]) c += (indexFinger && k === "point" ? 0.05 : CURL[k]) * w[k];
+      return c;
+    };
+    const setCurl = (g: THREE.Group | undefined, c: number, side: number) => {
+      if (!g) return;
+      // curl toward the palm (local -side·X): rotate about local Y
+      g.rotation.y = -side * c * 0.85;
+      const tip = g.children[1] as THREE.Object3D | undefined;
+      if (tip) tip.rotation.y = -side * c * 0.9;
+    };
+    const R = rig.current;
+    if (!R.index.length) {
+      r.traverse((o) => {
+        if (o.name === "index1") R.index[0] = o as THREE.Group;
+        else if (o.name === "index-1") R.index[1] = o as THREE.Group;
+        else if (o.name.startsWith("finger")) {
+          const [sd, n] = o.name.slice(6).split("_").map(Number);
+          R.rest[(sd === 1 ? 0 : 3) + n - 1] = o as THREE.Group;
+        }
+      });
+    }
+    setCurl(R.index[0], curlFor(pose.armL, true), 1);
+    setCurl(R.index[1], curlFor(pose.armR, true), -1);
+    for (let k = 0; k < 6; k++) {
+      const left = k < 3;
+      setCurl(R.rest[k], curlFor(left ? pose.armL : pose.armR, false) + k * 0.04, left ? 1 : -1);
+    }
+
     if (head.current) {
       const lookUp = pose.armR.point + pose.armR.phone * 0.8 + pose.armL.up * 0.4 + pose.armR.up * 0.3;
       head.current.rotation.x = -0.35 * clamp(lookUp);
@@ -303,21 +481,17 @@ export default function Character({
 
         {/* head */}
         <group ref={head} position={[0, 1.67, 0.01]}>
-          <mesh geometry={GEO.cranium} position={[0, 0.02, -0.005]} scale={[0.9, 1.04, 1]} material={toon(look.skin, "skin")} />
-          <mesh geometry={GEO.jaw} position={[0, -0.042, 0.016]} scale={[0.84, 0.82, 0.92]} material={toon(look.skin, "skin")} />
-          <mesh geometry={GEO.nose} position={[0, -0.01, 0.098]} rotation={[Math.PI / 2 - 0.3, 0, 0]} material={toon(look.skin, "skin")} />
-          {[1, -1].map((s) => (
-            <group key={s}>
-              <mesh geometry={GEO.ear} position={[s * 0.093, -0.002, -0.004]} scale={[0.45, 1, 0.8]} material={toon(look.skin, "skin")} />
-              <mesh geometry={GEO.eye} position={[s * 0.033, 0.014, 0.085]} material={toon("#18120e", "metal")} />
-              <mesh position={[s * 0.034, 0.038, 0.088]} rotation={[0, 0, s * -0.12]} material={toon(look.hair)}>
-                <boxGeometry args={[0.03, 0.006, 0.008]} />
+          <mesh geometry={headGeometry(look.skin, look.hat === "bun")} material={headSkin} />
+          {[1, -1].map((side) => (
+            <group key={side}>
+              <Eye side={side as 1 | -1} iris={look.iris ?? "#4a3322"} skin={look.skin} />
+              <mesh geometry={GEO.ear} position={[side * 0.086, 0.002, -0.004]} scale={[0.45, 1.05, 0.8]} material={toon(look.skin, "skin")} />
+              {/* eyebrow: a slim arched stroke */}
+              <mesh position={[side * 0.031, 0.036, 0.084]} rotation={[0.15, side * 0.2, Math.PI / 2 + side * 0.1]} material={toon(look.hair)}>
+                <capsuleGeometry args={[0.0028, 0.022, 3, 8]} />
               </mesh>
             </group>
           ))}
-          <mesh position={[0, -0.058, 0.084]} material={toon("#8a4a40", "skin")}>
-            <boxGeometry args={[0.032, 0.005, 0.006]} />
-          </mesh>
           {look.hat !== "hood" && (
             <mesh geometry={look.hat === "bun" ? GEO.hairLong : GEO.hairCap} position={[0, 0.03, -0.012]} rotation={[-0.42, 0, 0]} material={toon(look.hair)} />
           )}

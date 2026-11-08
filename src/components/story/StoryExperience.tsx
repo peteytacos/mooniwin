@@ -538,7 +538,7 @@ export default function StoryExperience() {
     >
       <Canvas
         shadows="percentage"
-        dpr={lite ? [1, 1.5] : [1, 2]}
+        dpr={lite ? [1, 2] : [1, 2.5]}
         camera={{ position: [0, 3, 24], fov: 44, near: 0.1, far: 1200 }}
         gl={{ antialias: false, powerPreference: "high-performance", toneMapping: THREE.NoToneMapping }}
       >
