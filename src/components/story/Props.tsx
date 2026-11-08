@@ -430,7 +430,12 @@ function ShoutRings() {
 export const toasterTrigger = { at: -999 };
 
 function Toaster() {
-  const tex = useTexture("/toaster.png");
+  // 128×128 power-of-two copy without colour-profile chunks: iOS mis-samples the
+  // mipmaps of the original odd-sized PNG and the bottom renders black.
+  const tex = useTexture("/toaster-sky.png", (t) => {
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 4;
+  });
   const ref = useRef<THREE.Sprite>(null);
   const pathRef = useRef({ start: new THREE.Vector3(), end: new THREE.Vector3() });
   const lastStart = useRef(-999);

@@ -51,8 +51,37 @@ class Sound {
     }
   }
 
+  private unlockEl: HTMLAudioElement | null = null;
+
+  /**
+   * iOS routes Web Audio through the ringer, so the silent switch mutes it.
+   * Declaring a "playback" session (Safari 16.4+) — or, on older iOS, playing a
+   * silent looping <audio> element — moves the page into the media category,
+   * which plays regardless of the switch. Must run synchronously in a gesture.
+   */
+  private unlockIOS() {
+    const nav = navigator as Navigator & { audioSession?: { type: string } };
+    if (nav.audioSession) {
+      try {
+        nav.audioSession.type = "playback";
+        return;
+      } catch {
+        /* fall through to the media-element trick */
+      }
+    }
+    if (!this.unlockEl) {
+      const el = new Audio("/audio/silence.mp3");
+      el.loop = true;
+      el.setAttribute("playsinline", "");
+      el.preload = "auto";
+      this.unlockEl = el;
+    }
+    if (this.unlockEl.paused) void this.unlockEl.play().catch(() => {});
+  }
+
   /** Must be called from a user gesture (click / key). Safe to call repeatedly. */
   async init() {
+    this.unlockIOS();
     if (this.ctx) {
       if (this.ctx.state === "suspended") await this.ctx.resume();
       return;

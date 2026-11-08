@@ -527,7 +527,15 @@ export default function StoryExperience() {
   const phoneAt = 1.0;
 
   return (
-    <div className="story-root fixed inset-0 bg-[#05070f] select-none" onClick={() => (toasterTrigger.at = story.time)}>
+    <div
+      className="story-root fixed inset-0 bg-[#05070f] select-none"
+      onClick={() => {
+        // tap anywhere on the film to play / pause (controls stop propagation)
+        if (claimRef.current) return;
+        void sound.init();
+        toggle();
+      }}
+    >
       <Canvas
         shadows="percentage"
         dpr={lite ? [1, 1.5] : [1, 2]}

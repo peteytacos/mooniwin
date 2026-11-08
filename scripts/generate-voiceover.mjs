@@ -35,7 +35,7 @@ const LINES = {
   centuries: "Moon I Win is a game that's been passed down through the centuries,",
   question: "to settle one never-ending question: who saw the moon first today?",
   simple: "The rules are simple.",
-  outside: "First, be outside.",
+  outside: "Be outside.",
   shouting: "Stay within shouting distance of each other.",
   point: "Then point at the moon, and say: Moon I Win!",
   victory: "And enjoy your victory, for the rest of the day.",

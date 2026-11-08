@@ -156,7 +156,7 @@ export const chapters: Chapter[] = [
   {
     id: "outside",
     kicker: "rule no. 1",
-    lines: ["first, be outside."],
+    lines: ["be outside."],
     align: "right",
     camera: { pos: [-4.2, 1.7, 5.5], look: [-6.4, 1.4, -1] },
     palette: blueHour,
