@@ -42,7 +42,7 @@ const LINES = {
   fake: "A few more things. Fake moon sightings don't count. Call one, and you're out for the day.",
   everyone: "Everyone who's playing must be outside.",
   trick: "Tricking someone to come outside is very much encouraged.",
-  text: "And if you must text someone a photo of the moon... that's allowed.",
+  text: "And if you can't play in person, you can text a photo of the moon instead.",
   luck: "Enjoy yourselves, and good luck.",
 };
 

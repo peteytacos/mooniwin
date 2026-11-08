@@ -209,7 +209,7 @@ export const chapters: Chapter[] = [
   },
   {
     id: "text",
-    lines: ["and if you must text someone", "a photo of the moon, that's allowed."],
+    lines: ["and if you can't play in person,", "you can text a photo of the moon instead."],
     align: "left",
     camera: { pos: [2.6, 1.4, 6.0], look: [-1, 6, -40] },
     palette: moonlit,
