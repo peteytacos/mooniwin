@@ -17,7 +17,7 @@ import {
 import { BlendFunction, ToneMappingMode } from "postprocessing";
 import * as THREE from "three";
 import { chapters, heroPoses, friendPoses } from "./chapters";
-import { story, live, updatePalette, segment, samplePose, makeSampledPose, clamp } from "./state";
+import { story, live, updatePalette, segment, samplePose, makeSampledPose, clamp, headAnchors } from "./state";
 import { tick } from "./timeline";
 import SkyWorld, { sunDir, moonDir, dirFromAngles, SUN_AZ } from "./Sky";
 import Nature from "./Nature";
@@ -35,14 +35,16 @@ const heroLook: Look = {
   hatColor: "#6e221d",
 };
 
+// Otto: ten years old, same skin tone as Pete
 const friendLook: Look = {
   coat: "#2c5244",
   coatTrim: "#cfc6b6",
   trousers: "#34303f",
-  skin: "#b07e62",
+  skin: "#d4a185",
   hair: "#7a3a1c",
   scarf: "#b8923e",
-  hat: "bun",
+  child: true,
+  scale: 0.78,
 };
 
 const lookAt = new THREE.Vector3();
@@ -56,6 +58,7 @@ const center = new THREE.Vector3();
 const viewDir = new THREE.Vector3();
 const side = new THREE.Vector3();
 const back = new THREE.Vector3();
+const headTop = new THREE.Vector3();
 const offset = new THREE.Vector2(0.0007, 0.0005);
 
 function Director() {
@@ -76,7 +79,8 @@ function Director() {
   useFrame(({ camera, size, scene }, delta) => {
     const dt = Math.min(delta, 0.05);
     story.time += dt;
-    tick(dt, performance.now() / 1000);
+    // the film clock uses real time (capped only for tab switches) so it keeps pace with the audio
+    tick(Math.min(delta, 0.25), performance.now() / 1000);
     updatePalette(story.t);
 
     // Seeking across chapters glides linearly; playback eases into each shot.
@@ -129,8 +133,9 @@ function Director() {
     // handheld camera: slow drift + micro shake + pointer parallax
     smoothPointer.lerp(story.pointer, 1 - Math.exp(-dt * 2));
     const tt = story.time;
-    camera.position.x += smoothPointer.x * 0.25 + Math.sin(tt * 0.31) * 0.05 + Math.sin(tt * 1.7) * 0.006;
-    camera.position.y += smoothPointer.y * 0.12 + Math.sin(tt * 0.43) * 0.035 + Math.sin(tt * 2.3) * 0.005;
+    // kept subtle: close shots magnify any camera movement
+    camera.position.x += smoothPointer.x * 0.1 + Math.sin(tt * 0.31) * 0.035 + Math.sin(tt * 1.7) * 0.003;
+    camera.position.y += smoothPointer.y * 0.05 + Math.sin(tt * 0.43) * 0.025 + Math.sin(tt * 2.3) * 0.0025;
     camera.lookAt(lookAt);
     camera.rotateZ(Math.sin(tt * 0.27) * 0.004);
 
@@ -141,6 +146,33 @@ function Director() {
     const aspect = size.width / size.height;
     cam.fov = fa + (fb - fa) * f + (aspect < 1 ? (1 - aspect) * 24 : 0);
     cam.updateProjectionMatrix();
+
+    // speech anchors: the screen point just above each lead's head
+    samplePose(heroPoses, story.t, heroNow);
+    samplePose(friendPoses, story.t, friendNow);
+    cam.updateMatrixWorld();
+    const k = 1 - Math.exp(-dt * 8);
+    for (const [p, a] of [
+      [heroNow, headAnchors.hero],
+      [friendNow, headAnchors.friend],
+    ] as const) {
+      headTop.set(p.x, p === friendNow ? 1.92 * (friendLook.scale ?? 1) : 1.92, p.z).project(cam);
+      const on = p.visible && !story.seeking && headTop.z < 1 && Math.abs(headTop.x) < 0.95 && headTop.y > -0.8 && headTop.y < 1.1;
+      if (!on) {
+        a.ok = false;
+        continue;
+      }
+      const x = ((headTop.x + 1) / 2) * size.width;
+      const y = ((1 - headTop.y) / 2) * size.height;
+      if (a.ok) {
+        a.x += (x - a.x) * k;
+        a.y += (y - a.y) * k;
+      } else {
+        a.x = x;
+        a.y = y;
+      }
+      a.ok = true;
+    }
 
     dirFromAngles(SUN_AZ, -6 + live.sun * 9, sunDir);
     const fog = scene.fog as THREE.FogExp2;

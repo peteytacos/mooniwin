@@ -4,9 +4,10 @@ import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useTexture } from "@react-three/drei";
 import * as THREE from "three";
-import { toon, groundHeight, HILL, rng } from "./toon";
-import { plaster, roofTiles, planks, stone, repeat } from "./textures";
-import { story, presence, clamp, smooth } from "./state";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { toon, groundHeight, HILL, rng, DRIVE, DRIVE_RUNS } from "./toon";
+import { plaster, roofTiles, planks, stone, gravel, repeat } from "./textures";
+import { story, presence, clamp, smooth, live } from "./state";
 import { chapterIndex, DOOR_OPEN, LANTERN_POS } from "./chapters";
 import Character, { type Look } from "./Character";
 
@@ -73,14 +74,18 @@ function Cottage() {
   return (
     <group>
       {/* warm interior glimpsed through the door and window */}
-      <mesh position={[-7, 1.6, -3]}>
-        <boxGeometry args={[4.6, 2.8, 3.6]} />
-        <meshStandardMaterial color="#6a4a32" emissive="#ff9a40" emissiveIntensity={0.55} side={THREE.BackSide} roughness={1} />
-      </mesh>
+      <Interior />
       <pointLight position={[-7, 2.0, -2.4]} color="#ffae5a" intensity={10} distance={9} decay={1.6} />
 
       {/* stone plinth */}
-      <Box p={[-7, 0.17, -3]} s={[5.3, 0.34, 4.3]} mat={m.stoneM} />
+      {/* stone footing under the walls only; the floor inside is at ground level so
+          people walk in and out without sinking through it */}
+      <Box p={[-8.975, 0.17, -1.05]} s={[1.35, 0.34, 0.4]} mat={m.stoneM} />
+      <Box p={[-5.725, 0.17, -1.05]} s={[2.75, 0.34, 0.4]} mat={m.stoneM} />
+      <Box p={[-7, 0.17, -4.95]} s={[5.3, 0.34, 0.4]} mat={m.stoneM} />
+      <Box p={[-9.45, 0.17, -3]} s={[0.4, 0.34, 3.5]} mat={m.stoneM} />
+      <Box p={[-4.55, 0.17, -3]} s={[0.4, 0.34, 3.5]} mat={m.stoneM} />
+      <Box p={[-7.7, 0.01, -1.05]} s={[1.2, 0.02, 0.4]} mat={m.stoneM} />
 
       {/* front wall pieces around the door + window (z -1.1) */}
       <Box p={[-8.9, 1.65, -1.1]} s={[1.2, 2.7, 0.24]} mat={m.wall} />
@@ -90,7 +95,13 @@ function Cottage() {
       <Box p={[-5.7, 2.5, -1.1]} s={[1.2, 1.0, 0.24]} mat={m.wall} />
       <Box p={[-4.8, 1.65, -1.1]} s={[0.6, 2.7, 0.24]} mat={m.wall} />
       {/* side + back walls */}
-      <Box p={[-7, 1.65, -4.9]} s={[5, 2.7, 0.24]} mat={m.wallSide} />
+      {/* back wall, with a window toward the moon (x -6.2..-5.2, y 1.6..2.8) */}
+      <Box p={[-7.85, 1.65, -4.9]} s={[3.3, 2.7, 0.24]} mat={m.wallSide} />
+      <Box p={[-4.85, 1.65, -4.9]} s={[0.7, 2.7, 0.24]} mat={m.wallSide} />
+      <Box p={[-5.7, 0.95, -4.9]} s={[1.0, 1.3, 0.24]} mat={m.wallSide} />
+      <Box p={[-5.7, 2.9, -4.9]} s={[1.0, 0.2, 0.24]} mat={m.wallSide} />
+      <Box p={[-5.7, 1.56, -5.08]} s={[1.25, 0.08, 0.24]} mat={m.timber} />
+
       <Box p={[-9.4, 1.65, -3]} s={[0.24, 2.7, 4]} mat={m.wallSide} />
       <Box p={[-4.6, 1.65, -3]} s={[0.24, 2.7, 4]} mat={m.wallSide} />
       {/* gable triangles */}
@@ -111,12 +122,9 @@ function Cottage() {
       ))}
       <Box p={[-7, 3.02, -0.95]} s={[5.2, 0.18, 0.16]} mat={m.beam} />
       <Box p={[-7.7, 2.32, -0.95]} s={[1.5, 0.14, 0.14]} mat={m.beam} />
-      {/* window frame + mullions + glass + sill */}
-      <Box p={[-5.7, 2.03, -0.95]} s={[1.4, 0.1, 0.14]} mat={m.timber} />
-      <Box p={[-6.33, 1.5, -0.95]} s={[0.08, 1.1, 0.12]} mat={m.timber} />
-      <Box p={[-5.07, 1.5, -0.95]} s={[0.08, 1.1, 0.12]} mat={m.timber} />
-      <Box p={[-5.7, 1.5, -1.02]} s={[0.05, 1.0, 0.05]} mat={m.timber} />
-      <Box p={[-5.7, 1.5, -1.02]} s={[1.2, 0.05, 0.05]} mat={m.timber} />
+      {/* windows: a slim trim around the outside edge only, no mullions across the view */}
+      <WindowTrim x0={-6.3} x1={-5.1} y0={1.0} y1={2.0} z={-0.955} mat={m.timber} />
+      <WindowTrim x0={-6.2} x1={-5.2} y0={1.6} y1={2.8} z={-5.045} mat={m.timber} />
       <Box p={[-5.7, 0.97, -0.9]} s={[1.5, 0.08, 0.32]} mat={m.timber} />
       <mesh position={[-5.7, 1.5, -1.06]} material={m.glass}>
         <planeGeometry args={[1.2, 1.0]} />
@@ -133,17 +141,17 @@ function Cottage() {
       ))}
 
       {/* door on its hinge, iron strap hinges */}
-      <group ref={door} position={[-8.3, 0.34, -1.02]}>
-        <Box p={[0.6, 0.98, 0]} s={[1.2, 1.96, 0.08]} mat={m.doorM} />
-        {[0.45, 1.5].map((y) => (
+      <group ref={door} position={[-8.3, 0.02, -1.02]}>
+        <Box p={[0.6, 1.13, 0]} s={[1.2, 2.26, 0.08]} mat={m.doorM} />
+        {[0.6, 1.8].map((y) => (
           <Box key={y} p={[0.4, y, 0.05]} s={[0.7, 0.05, 0.015]} mat={m.iron} />
         ))}
-        <mesh position={[1.05, 1.0, 0.07]} material={toon("#9a7a3a", "metal")}>
+        <mesh position={[1.05, 1.1, 0.07]} material={toon("#9a7a3a", "metal")}>
           <torusGeometry args={[0.05, 0.012, 8, 16]} />
         </mesh>
       </group>
       {/* step + porch lamp */}
-      <Box p={[-7.7, 0.1, -0.65]} s={[1.6, 0.2, 0.8]} mat={m.stoneM} />
+      <Box p={[-7.7, 0.025, -0.6]} s={[1.6, 0.05, 0.7]} mat={m.stoneM} />
       <group position={[-7.0, 2.45, -0.88]}>
         <mesh material={m.iron}>
           <boxGeometry args={[0.14, 0.2, 0.14]} />
@@ -196,6 +204,108 @@ function Cottage() {
   );
 }
 
+/** Thin frame around a window opening (outer face of the wall). */
+function WindowTrim({ x0, x1, y0, y1, z, mat }: { x0: number; x1: number; y0: number; y1: number; z: number; mat: THREE.Material }) {
+  const t = 0.045;
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, w = x1 - x0 + t * 2, h = y1 - y0;
+  return (
+    <>
+      <Box p={[cx, y1 + t / 2, z]} s={[w, t, 0.05]} mat={mat} />
+      <Box p={[cx, y0 - t / 2, z]} s={[w, t, 0.05]} mat={mat} />
+      <Box p={[x0 - t / 2, cy, z]} s={[t, h, 0.05]} mat={mat} />
+      <Box p={[x1 + t / 2, cy, z]} s={[t, h, 0.05]} mat={mat} />
+    </>
+  );
+}
+
+/** Warm-lit room behind the walls; open where the back window is so the sky shows through. */
+// inset a few cm from the walls' inner faces (x -9.28 / -4.72, z -4.78) so no two
+// surfaces share a plane and z-fight; the floor sits just above the ground
+const ROOM = { x0: -9.24, x1: -4.76, y0: 0.03, y1: 2.96, z0: -4.74, z1: -1.24 };
+const WIN = { x0: -6.2, x1: -5.2, y0: 1.6, y1: 2.8 };
+function Interior() {
+  const geo = useMemo(() => {
+    const { x0, x1, y0, y1, z0, z1 } = ROOM;
+    const w = x1 - x0, h = y1 - y0, d = z1 - z0;
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, cz = (z0 + z1) / 2;
+    const parts: THREE.BufferGeometry[] = [];
+    const put = (g: THREE.BufferGeometry, rx: number, ry: number, x: number, y: number, z: number) => {
+      g.rotateX(rx);
+      g.rotateY(ry);
+      g.translate(x, y, z);
+      parts.push(g);
+    };
+    put(new THREE.PlaneGeometry(w, d), -Math.PI / 2, 0, cx, y0, cz); // floor
+    put(new THREE.PlaneGeometry(w, d), Math.PI / 2, 0, cx, y1, cz); // ceiling
+    put(new THREE.PlaneGeometry(d, h), 0, Math.PI / 2, x0, cy, cz); // left
+    put(new THREE.PlaneGeometry(d, h), 0, -Math.PI / 2, x1, cy, cz); // right
+    // back wall with the window cut out (faces +z, into the room)
+    const shape = new THREE.Shape([
+      new THREE.Vector2(x0, y0),
+      new THREE.Vector2(x1, y0),
+      new THREE.Vector2(x1, y1),
+      new THREE.Vector2(x0, y1),
+    ]);
+    shape.holes.push(
+      new THREE.Path([
+        new THREE.Vector2(WIN.x0, WIN.y0),
+        new THREE.Vector2(WIN.x0, WIN.y1),
+        new THREE.Vector2(WIN.x1, WIN.y1),
+        new THREE.Vector2(WIN.x1, WIN.y0),
+      ])
+    );
+    put(new THREE.ShapeGeometry(shape), 0, 0, 0, 0, z0);
+    const merged = mergeGeometries(parts.map((g) => g.toNonIndexed()));
+    parts.forEach((g) => g.dispose());
+    return merged;
+  }, []);
+  return (
+    <mesh geometry={geo}>
+      <meshStandardMaterial color="#6a4a32" emissive="#ff9a40" emissiveIntensity={0.55} roughness={1} />
+    </mesh>
+  );
+}
+
+/** Gravel turning circle by the street lamp, with a footpath to the door and a lane out. */
+function Driveway() {
+  const mat = useMemo(() => {
+    const g = repeat(gravel(), 1, 1);
+    return new THREE.MeshStandardMaterial({
+      map: g.map,
+      bumpMap: g.bump,
+      bumpScale: 2,
+      roughness: 0.95,
+      color: "#cfc6b6",
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -2,
+    });
+  }, []);
+  const geo = useMemo(() => {
+    const parts: THREE.BufferGeometry[] = [];
+    const ring = new THREE.RingGeometry(DRIVE.r0, DRIVE.r1, 96, 1);
+    ring.rotateX(-Math.PI / 2);
+    ring.translate(DRIVE.cx, 0.02, DRIVE.cz);
+    parts.push(ring);
+    DRIVE_RUNS.forEach(([x0, z0, x1, z1, w], i) => {
+      const len = Math.hypot(x1 - x0, z1 - z0);
+      const g = new THREE.PlaneGeometry(w, len);
+      g.rotateX(-Math.PI / 2);
+      g.rotateY(Math.atan2(x1 - x0, z1 - z0));
+      g.translate((x0 + x1) / 2, 0.021 + i * 0.001, (z0 + z1) / 2);
+      parts.push(g);
+    });
+    const merged = mergeGeometries(parts.map((g) => g.toNonIndexed()));
+    // world-space UVs so the gravel tiles evenly everywhere (~1.6m per tile)
+    const pos = merged.attributes.position as THREE.BufferAttribute;
+    const uv = merged.attributes.uv as THREE.BufferAttribute;
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / 1.6, pos.getZ(i) / 1.6);
+    parts.forEach((g) => g.dispose());
+    return merged;
+  }, []);
+  return <mesh geometry={geo} material={mat} receiveShadow />;
+}
+
 /** Irregular weathered monolith instead of a box. */
 function rockGeometry(w: number, h: number, d: number, seed: number) {
   const g = new THREE.BoxGeometry(w, h, d, 6, 12, 4);
@@ -230,6 +340,117 @@ const elders: Look[] = [
   { coat: "#3a2a34", coatTrim: "#7a5a3a", trousers: "#2a2a2a", skin: "#b8805e", hair: "#1a1a1a", scarf: "#8a5a3a", hat: "hood", robe: true, staff: true },
 ];
 
+const FIRE = { x: HILL.x + 0.2, z: HILL.z + 1.5 };
+/** The hand-made moon of the "centuries" scene: a dreamlike, storybook prop. */
+// hovers close beside the elders (dream logic), so the pointing arm reads across the frame
+export const DREAM_MOON = { x: 18.9, y: 6.9, z: -25.6, r: 0.95 };
+
+function DreamMoon() {
+  const ref = useRef<THREE.Group>(null);
+  const centuries = chapterIndex("centuries");
+  const { disc, halo } = useMemo(() => {
+    // a hand-made moon: a slightly uneven painted disc with soft brush strokes,
+    // daubed craters and a light charcoal outline
+    const S = 512;
+    const cv = document.createElement("canvas");
+    cv.width = cv.height = S;
+    const c = cv.getContext("2d")!;
+    const rand = rng(17);
+    const ph = [rand() * 6, rand() * 6, rand() * 6];
+    const edge = new Path2D();
+    for (let i = 0; i <= 64; i++) {
+      const a = (i / 64) * Math.PI * 2;
+      const wob = Math.sin(a * 3 + ph[0]) * 0.018 + Math.sin(a * 5 + ph[1]) * 0.01 + Math.sin(a * 11 + ph[2]) * 0.005 + (rand() - 0.5) * 0.008;
+      const r = S * 0.42 * (1 + wob);
+      const x = S / 2 + Math.cos(a) * r;
+      const y = S / 2 + Math.sin(a) * r * 0.97;
+      if (i) edge.lineTo(x, y);
+      else edge.moveTo(x, y);
+    }
+    edge.closePath();
+    c.fillStyle = "#efe2bd";
+    c.fill(edge);
+    c.save();
+    c.clip(edge);
+    // visible brush strokes in two directions
+    c.lineCap = "round";
+    for (let i = 0; i < 110; i++) {
+      const x = rand() * S, y = rand() * S, a = rand() < 0.6 ? -0.5 + rand() * 0.3 : 0.9 + rand() * 0.3;
+      const len = 40 + rand() * 120;
+      c.strokeStyle = rand() < 0.5 ? `rgba(255,248,220,${0.15 + rand() * 0.2})` : `rgba(196,176,128,${0.1 + rand() * 0.12})`;
+      c.lineWidth = 6 + rand() * 14;
+      c.beginPath();
+      c.moveTo(x, y);
+      c.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+      c.stroke();
+    }
+    // lopsided painted craters with scribbled rims
+    for (const [x, y, r] of [[0.36, 0.36, 0.1], [0.62, 0.3, 0.065], [0.55, 0.62, 0.12], [0.3, 0.66, 0.055], [0.72, 0.52, 0.045], [0.45, 0.48, 0.03]]) {
+      c.fillStyle = "rgba(170,148,105,0.55)";
+      c.beginPath();
+      c.ellipse(x * S, y * S, r * S, r * S * (0.75 + rand() * 0.2), rand() * 3, 0, Math.PI * 2);
+      c.fill();
+      c.strokeStyle = "rgba(110,90,62,0.35)";
+      c.lineWidth = 2;
+      for (let k = 0; k < 2; k++) {
+        c.beginPath();
+        c.ellipse(x * S + (rand() - 0.5) * 4, y * S + (rand() - 0.5) * 4, r * S * (1 + (rand() - 0.5) * 0.12), r * S * 0.8, rand() * 3, rand(), rand() + 5.2);
+        c.stroke();
+      }
+    }
+    c.restore();
+    // thick, uneven charcoal outline (drawn twice, slightly off)
+    c.strokeStyle = "rgba(80,64,44,0.45)";
+    c.lineJoin = "round";
+    c.lineWidth = 5;
+    c.stroke(edge);
+    c.save();
+    c.translate(3, -2);
+    c.strokeStyle = "rgba(80,64,44,0.18)";
+    c.lineWidth = 3;
+    c.stroke(edge);
+    c.restore();
+    const discTex = new THREE.CanvasTexture(cv);
+    discTex.colorSpace = THREE.SRGBColorSpace;
+    const hc = document.createElement("canvas");
+    hc.width = hc.height = 128;
+    const h = hc.getContext("2d")!;
+    const hg = h.createRadialGradient(64, 64, 10, 64, 64, 64);
+    hg.addColorStop(0, "rgba(255,240,200,0.35)");
+    hg.addColorStop(0.45, "rgba(255,230,180,0.18)");
+    hg.addColorStop(1, "rgba(255,230,180,0)");
+    h.fillStyle = hg;
+    h.fillRect(0, 0, 128, 128);
+    const haloTex = new THREE.CanvasTexture(hc);
+    return {
+      disc: new THREE.MeshBasicMaterial({ map: discTex, transparent: true, toneMapped: false, fog: false, depthWrite: false, color: new THREE.Color(1.15, 1.1, 1.0) }),
+      halo: new THREE.MeshBasicMaterial({ map: haloTex, transparent: true, toneMapped: false, fog: false, depthWrite: false, blending: THREE.AdditiveBlending }),
+    };
+  }, []);
+  useFrame(({ camera }) => {
+    const g = ref.current;
+    if (!g) return;
+    const p = presence(story.t, centuries, 0.75);
+    g.visible = p > 0.01;
+    if (!g.visible) return;
+    // floats gently, always facing the viewer
+    g.position.set(DREAM_MOON.x, DREAM_MOON.y + Math.sin(story.time * 0.6) * 0.1, DREAM_MOON.z);
+    g.quaternion.copy(camera.quaternion);
+    g.rotateZ(Math.sin(story.time * 0.35) * 0.06);
+    for (const m of g.children) ((m as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = p;
+  });
+  return (
+    <group ref={ref} visible={false}>
+      <mesh material={halo} scale={DREAM_MOON.r * 4.2} renderOrder={1}>
+        <planeGeometry />
+      </mesh>
+      <mesh material={disc} scale={DREAM_MOON.r * 2} renderOrder={2}>
+        <planeGeometry />
+      </mesh>
+    </group>
+  );
+}
+
 function Hilltop() {
   const stones = useMemo(() => {
     return Array.from({ length: 7 }).map((_, i) => {
@@ -240,20 +461,24 @@ function Hilltop() {
       return { x, z, y: groundHeight(x, z) + h / 2 - 0.3, h, rot: a };
     });
   }, []);
+  // gathered round the fire: two warm their hands, one points at the moon,
+  // one just gazes up at it
   const people = useMemo(() => {
-    const spots = [
-      [-1.6, 1.2, 0.9],
-      [0.2, 0.6, 0.5],
-      [1.4, 1.6, 0.2],
-      [-0.4, -1.0, 2.6],
+    const face = (x: number, z: number, tx: number, tz: number) => Math.atan2(tx - x, tz - z);
+    const spots: { dx: number; dz: number; to: "fire" | "moon"; point?: boolean; lookUp?: number }[] = [
+      { dx: -1.4, dz: 2.6, to: "fire" },
+      { dx: 0.6, dz: -0.4, to: "moon", point: true },
+      { dx: 1.9, dz: 2.1, to: "moon", lookUp: 0.9 },
+      { dx: -1.0, dz: 0.1, to: "fire" },
     ];
-    return spots.map(([dx, dz, rot]) => {
+    return spots.map(({ dx, dz, to, point, lookUp }) => {
       const x = HILL.x + dx;
       const z = HILL.z + dz;
-      return { x, z, y: groundHeight(x, z), rot };
+      const [tx, tz] = to === "fire" ? [FIRE.x, FIRE.z] : [DREAM_MOON.x, DREAM_MOON.z];
+      return { x, z, y: groundHeight(x, z), rot: face(x, z, tx, tz), point, lookUp };
     });
   }, []);
-  const pointAt = useMemo(() => new THREE.Vector3(-40, 160, -320), []);
+  const pointAt = useMemo(() => new THREE.Vector3(DREAM_MOON.x, DREAM_MOON.y, DREAM_MOON.z), []);
   const stoneMat = useMemo(() => surface(stone(), 1, 2, { roughness: 0.95, bumpScale: 3 }), []);
 
   return (
@@ -267,15 +492,11 @@ function Hilltop() {
         <circleGeometry args={[0.28, 20]} />
         <meshBasicMaterial color="#d8d0b8" side={THREE.DoubleSide} />
       </mesh>
-      {people.map((p, i) => (
-        <Character
-          key={i}
-          look={elders[i]}
-          still={{ ...p, point: i === 1 ? pointAt : undefined, sway: 0.08 }}
-        />
+      {people.map(({ point, ...p }, i) => (
+        <Character key={i} look={elders[i]} still={{ ...p, point: point ? pointAt : undefined, sway: 0.06 }} />
       ))}
-      {/* a bonfire */}
-      <Bonfire x={HILL.x + 0.2} z={HILL.z + 2.4} />
+      <Bonfire x={FIRE.x} z={FIRE.z} />
+      <DreamMoon />
     </group>
   );
 }
@@ -378,9 +599,12 @@ function Lantern() {
   useFrame(() => {
     const p = presence(story.t, fake, 0.8);
     const flicker = 0.92 + Math.sin(story.time * 13) * 0.04 + Math.sin(story.time * 7.3) * 0.04;
-    const b = (3 + 3 * p) * flicker;
-    if (glow.current) glow.current.color.setRGB(b, b * 0.9, b * 0.66);
-    if (light.current) light.current.intensity = (2 + p * 7) * flicker;
+    // only switches on once it's properly dark (off through golden hour and sunset)
+    const dark = 1 - smooth(clamp((live.sun - 0.04) / 0.16));
+    // unlit: a dim smoky glass globe, not a glowing white blob
+    const b = 0.09 + ((3 + 3 * p) * flicker - 0.09) * dark;
+    if (glow.current) glow.current.color.setRGB(b, b * 0.92 + (1 - dark) * 0.005, b * 0.66 + (1 - dark) * 0.035);
+    if (light.current) light.current.intensity = (2 + p * 7) * flicker * dark;
   });
   return (
     <group>
@@ -477,6 +701,7 @@ export default function Props() {
       <Cottage />
       <Hilltop />
       <Lantern />
+      <Driveway />
       <ShoutRings />
       <Toaster />
     </>

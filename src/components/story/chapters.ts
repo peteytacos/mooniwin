@@ -1,4 +1,4 @@
-// The story of "moon, i win!" — one chapter per scroll "page".
+// The story of "moon i win!" — one chapter per scene.
 // The caption text is the original crawl script, verbatim, split into beats.
 
 export type Vec3 = [number, number, number];
@@ -110,6 +110,8 @@ const moonrise: Palette = {
 };
 
 const moonlit: Palette = { ...moonrise, horizon: "#3a5886", moonElevation: 22, spirits: 0.6 };
+// the moon sits low enough to be framed by the cottage's back window
+const moonThroughWindow: Palette = { ...moonlit, moonElevation: 8 };
 const lanternNight: Palette = { ...moonlit, moonGlow: 0.7, moonElevation: 24, spirits: 0.3 };
 const finale: Palette = {
   ...moonrise,
@@ -134,8 +136,10 @@ export const chapters: Chapter[] = [
   {
     id: "centuries",
     lines: ["moon i win is a game that's been", "passed down through the centuries,"],
-    align: "left",
-    camera: { pos: [7.5, 2.6, -8.5], look: [15, 5.2, -24] },
+    align: "right",
+    // over the elders' shoulders: one points up at the dream moon, upper left
+    // further back on a longer lens: same framing, far less apparent camera motion
+    camera: { pos: [10.2, 1.6, -32.4], look: [17.5, 5.6, -23], fov: 30 },
     palette: goldenHour,
   },
   {
@@ -197,8 +201,9 @@ export const chapters: Chapter[] = [
     id: "everyone",
     lines: ["everyone who's playing", "must be outside."],
     align: "right",
-    camera: { pos: [-6.4, 1.7, 4.8], look: [-5.2, 1.3, -1.2] },
-    palette: moonlit,
+    // through the front window, across the room, out of the back window to the moon
+    camera: { pos: [-5.15, 1.4, 2.2], look: [-5.95, 1.95, -4.9] },
+    palette: moonThroughWindow,
   },
   {
     id: "trick",
@@ -242,6 +247,8 @@ export interface Pose {
   armL?: ArmPose;
   target?: Vec3; // what the pointing arm aims at
   visible?: boolean;
+  /** Hold the move into this key until `sec` seconds into its chapter, then take `walk` seconds. */
+  gate?: { sec: number; walk: number };
 }
 
 export const MOON_TARGET: Vec3 = [-30, 120, -300];
@@ -258,7 +265,7 @@ export const heroPoses: Pose[] = [
   { at: C("point"), x: -1.2, z: 2.2, rot: Math.PI - 0.6, armR: "point", armL: "rest", target: MOON_TARGET },
   { at: C("victory"), x: -0.8, z: 2.0, rot: 0.25, armR: "up", armL: "up" },
   { at: C("fake"), x: 2.4, z: 3.8, rot: 1.6, armR: "point", target: LANTERN_POS },
-  { at: C("everyone"), x: -3.7, z: 0.5, rot: -2.0, armR: "rest" },
+  { at: C("everyone"), x: -3.4, z: -0.4, rot: -1.87, armR: "rest" },
   { at: C("trick"), x: -4.4, z: 1.8, rot: -2.2, armR: "wave", armL: "rest" },
   { at: C("text"), x: 0.6, z: 3.0, rot: Math.PI - 0.1, armR: "phone", armL: "rest" },
   { at: C("luck"), x: 0.0, z: 2.0, rot: 0.2, armR: "wave", armL: "rest" },
@@ -275,9 +282,11 @@ export const friendPoses: Pose[] = [
   // wanders back indoors and ends up peering through the window
   { at: C("fake") + 0.45, x: -7.7, z: 0.6, rot: Math.PI },
   { at: C("fake") + 0.75, x: -7.7, z: -2.4, rot: Math.PI },
-  { at: C("everyone"), x: -5.7, z: -1.75, rot: 0, armR: "point", target: MOON_TARGET },
+  // at the back window, pointing at the low moon through it
+  { at: C("everyone"), x: -6.55, z: -4.15, rot: Math.PI - 0.35, armR: "point", target: [-30, 42, -296] },
   { at: C("trick") - 0.4, x: -7.7, z: -2.4, rot: 0.1 },
-  { at: C("trick"), x: -7.5, z: 0.5, rot: 0.5, armR: "up", armL: "up" },
+  // stays inside until Pete's ice-cream call lands, then rushes out
+  { at: C("trick"), x: -7.5, z: 0.5, rot: 0.5, armR: "up", armL: "up", gate: { sec: 5.0, walk: 1.4 } },
   // back inside (they're the one being texted)
   { at: C("trick") + 0.5, x: -7.7, z: 0.4, rot: Math.PI },
   { at: C("text") - 0.2, x: -7.7, z: -2.6, rot: Math.PI },
@@ -314,9 +323,10 @@ export const cues: Cue[] = [
   { chapter: "fake", who: "hero", at: 0.3, dur: 1.7, text: "Moon I win!" },
   { chapter: "everyone", who: "friend", after: 0.2, dur: 2.0, text: "I can see it from in here!" },
   { chapter: "everyone", who: "hero", after: 2.3, dur: 1.5, text: "Doesn't count." },
-  { chapter: "trick", who: "hero", at: 0.2, dur: 1.8, text: "There's a deer in the garden!" },
-  { chapter: "trick", who: "friend", at: 2.1, dur: 1.1, text: "Where?!" },
+  // starts once the camera has arrived and Pete is in shot; long enough to read
+  { chapter: "trick", who: "hero", at: 2.7, dur: 3.2, text: "Whoa, there's free ice cream out here!" },
+  { chapter: "trick", who: "friend", at: 6.0, dur: 1.3, text: "Where?!" },
   { chapter: "trick", who: "hero", after: 0.25, dur: 1.8, text: "Moon I win." },
 ];
 
-export const SPEAKER = { hero: "Alex", friend: "Sam" } as const;
+export const SPEAKER = { hero: "Pete", friend: "Otto" } as const;

@@ -1,5 +1,5 @@
 // The film's clock. The story plays like a video (play / pause / rewind /
-// restart); scrolling, arrows and swipes just seek between chapters.
+// restart); the chapter buttons and arrow keys seek between chapters.
 import { chapters, CHAPTER_COUNT, cues, type Cue } from "./chapters";
 import { story, clamp } from "./state";
 import voDurations from "./vo-durations.json";
@@ -12,7 +12,7 @@ export const VO: Record<string, number> = voDurations;
 
 // Narration starts while the camera is still travelling, so the voice carries
 // the cut like one continuous sentence. A few beats let dialogue go first.
-const VO_START: Record<string, number> = { title: 1.4, fake: 2.2, trick: 2.3 };
+const VO_START: Record<string, number> = { title: 1.4, fake: 2.2, trick: 7.4 };
 // Breath after each line. Tiny where the sentence runs on into the next shot.
 const TAIL: Record<string, number> = { title: 1.8, centuries: 0.1, question: 0.8, simple: 0.35, luck: 3.5 };
 // Extra hold for beats without dialogue (the phone needs a moment to read).
@@ -46,6 +46,10 @@ export const player = {
   ended: false,
   started: false, // has the viewer pressed play at least once
   seek: null as null | { from: number; to: number; start: number; dur: number },
+  /** While narration plays, the audio clock is the master: returns the playhead it implies. */
+  audioClock: null as null | (() => number | null),
+  /** Lets the sound engine start its score over when the film restarts. */
+  onRestart: null as null | (() => void),
 };
 
 /** Chapter index + seconds into it for a playhead time. */
@@ -80,7 +84,10 @@ export function tick(dt: number, now: number) {
   }
   story.seeking = false;
   if (player.playing) {
-    player.playhead += dt;
+    // follow the narration's clock when it's speaking, so slow frames never
+    // make the voice jump; otherwise advance with real elapsed time
+    const audio = player.audioClock?.();
+    player.playhead = audio ?? player.playhead + dt;
     if (player.playhead >= TOTAL) {
       player.playhead = TOTAL;
       player.playing = false;
@@ -88,6 +95,9 @@ export function tick(dt: number, now: number) {
     }
   }
   story.t = chapterAt(player.playhead);
+  const at = locate(player.playhead);
+  story.chapter = at.i;
+  story.local = at.local;
 }
 
 // ── Controls ───────────────────────────────────────────────────────────────
@@ -104,11 +114,16 @@ export function toggle() {
   if (player.playing) pause();
   else play();
 }
+/** Back to the very first frame and play from the top: narration, score and all. */
 export function restart() {
   player.seek = null;
   player.playhead = 0;
   player.ended = false;
+  player.playing = true;
+  player.started = true;
   story.t = 0;
+  story.seeking = false;
+  player.onRestart?.();
 }
 export function rewind(seconds = 5) {
   player.seek = null;

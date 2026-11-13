@@ -1,7 +1,7 @@
 // Sound for the film: an original procedural score (Web Audio) plus narration
 // that follows the playhead, so pause / rewind / seek all stay in sync.
 import { chapters } from "./chapters";
-import { player, locate, voStart } from "./timeline";
+import { player, locate, voStart, starts } from "./timeline";
 
 const MUTE_KEY = "mooniwin-muted";
 
@@ -89,6 +89,8 @@ class Sound {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     const ctx = new Ctx();
     this.ctx = ctx;
+    player.audioClock = this.audioClock;
+    player.onRestart = () => this.restartScore();
 
     this.master = ctx.createGain();
     this.master.gain.value = this.muted ? 0 : 1;
@@ -167,6 +169,19 @@ class Sound {
   }
 
   // ── narration sync ───────────────────────────────────────────────────────
+  /** Playhead implied by the narration that's currently sounding (null when silent). */
+  private audioClock = () => {
+    const cur = this.current;
+    const ctx = this.ctx;
+    if (!cur || !ctx || ctx.state !== "running" || !player.playing) return null;
+    const i = chapters.findIndex((c) => c.id === cur.id);
+    const pos = cur.offset + (ctx.currentTime - cur.t0);
+    if (i < 0 || pos >= (cur.src.buffer?.duration ?? 0)) return null;
+    const t = starts[i] + voStart(i) + pos;
+    // a big gap means the viewer just rewound/seeked: let the narration resync instead
+    return Math.abs(t - player.playhead) < 0.6 ? t : null;
+  };
+
   private loop = () => {
     this.raf = requestAnimationFrame(this.loop);
     const ctx = this.ctx;
@@ -180,7 +195,7 @@ class Sound {
     if (shouldPlay && buf) {
       const cur = this.current;
       const expected = cur ? cur.offset + (ctx.currentTime - cur.t0) : -1;
-      if (!cur || cur.id !== id || Math.abs(expected - offset) > 0.3) {
+      if (!cur || cur.id !== id || Math.abs(expected - offset) > 0.6) {
         this.stopVo();
         const src = ctx.createBufferSource();
         src.buffer = buf;
@@ -212,6 +227,36 @@ class Sound {
       /* already stopped */
     }
     this.current = null;
+  }
+
+  /** Cut the narration and start the score again from its first chord. */
+  private restartScore() {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    this.stopVo();
+    const t = ctx.currentTime;
+    // notes already scheduled keep playing into the old filter/pulse: fade those out
+    for (const old of [this.filter, this.pulse] as AudioNode[]) {
+      const fade = ctx.createGain();
+      old.disconnect();
+      old.connect(fade).connect(this.music);
+      fade.gain.setValueAtTime(1, t);
+      fade.gain.linearRampToValueAtTime(0, t + 0.6);
+      setTimeout(() => fade.disconnect(), 12000);
+    }
+    const f = ctx.createBiquadFilter();
+    f.type = "lowpass";
+    f.frequency.value = 900;
+    f.Q.value = 0.4;
+    f.connect(this.music);
+    this.filter = f;
+    const p = ctx.createGain();
+    p.gain.value = 0;
+    p.connect(this.music);
+    this.pulse = p;
+    this.chordIdx = 0;
+    this.nextChordTime = t + 0.4;
+    this.schedule();
   }
 
   // ── score ────────────────────────────────────────────────────────────────
@@ -320,6 +365,8 @@ class Sound {
     cancelAnimationFrame(this.raf);
     void this.ctx?.close();
     this.ctx = null;
+    player.audioClock = null;
+    player.onRestart = null;
   }
 }
 

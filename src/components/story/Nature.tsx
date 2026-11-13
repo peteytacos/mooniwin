@@ -6,7 +6,7 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { live, story, presence, samplePose, makeSampledPose } from "./state";
 import { chapterIndex, heroPoses } from "./chapters";
-import { rng, groundHeight, HILL } from "./toon";
+import { rng, groundHeight, HILL, onDriveway } from "./toon";
 import { needles, leaves, bark, earth } from "./textures";
 import { sunDir, moonDir } from "./Sky";
 import { MOON_AZ } from "./Sky";
@@ -168,7 +168,7 @@ function Grass({ count }: { count: number }) {
       const a = rand() * Math.PI * 2;
       const x = Math.cos(a) * r;
       const z = Math.sin(a) * r * 0.85 - 2;
-      if (inCottage(x, z, 0.1)) continue;
+      if (inCottage(x, z, 0.1) || onDriveway(x, z, -0.08)) continue;
       const h = 0.25 + rand() * 0.5;
       p.set(x, groundHeight(x, z) - 0.02, z);
       e.set((rand() - 0.5) * 0.4, rand() * Math.PI, (rand() - 0.5) * 0.4);

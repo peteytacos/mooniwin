@@ -197,7 +197,15 @@ function Moon() {
             float mu = max(dot(vN, vV), 0.0);
             col *= 0.55 + 0.45 * pow(mu, 0.35);
             col = pow(col, vec3(2.2));
-            vec3 day = mix(uSky, col, 0.35);
+            // daytime: a pale, ghostly gibbous moon. Smooth (no crater grit), the sky
+            // showing through its seas, a soft shadow edge where the sunlit side ends.
+            float seas = smoothstep(0.38, 0.68, fbm(q * 1.0 + 2.0));
+            vec3 L = normalize(vec3(0.82, 0.22, 0.52));
+            float lit = smoothstep(-0.12, 0.28, dot(p, L));
+            float limb = smoothstep(0.0, 0.18, mu);
+            float veil = 0.68 * (1.0 - seas * 0.55) * mix(0.1, 1.0, lit) * limb;
+            vec3 day = mix(uSky, vec3(0.97, 0.98, 1.02), veil);
+            // night is unchanged: full and bright, blooming
             col = mix(day, col * 5.0, uGlow);
             gl_FragColor = vec4(col, 1.0);
           }

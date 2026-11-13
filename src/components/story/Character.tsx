@@ -19,6 +19,7 @@ export interface Look {
   iris?: string;
   hatColor?: string;
   robe?: boolean; // long robe down to the ground (ancients)
+  child?: boolean; // a kid: soft features, no stubble, bigger head for their size
   staff?: boolean;
   scale?: number;
 }
@@ -81,21 +82,27 @@ function hairGeometry(r: number, coverage: number, seed: number) {
 
 // ── Sculpted head ──────────────────────────────────────────────────────────
 // A dense sphere pushed and pulled into a face: skull, jaw, sockets, brow,
-// cheekbones, nose, lips, chin. Skin tone variation is baked into vertex colours.
+// cheekbones, nose, lips, chin. Skin tone, brows and lip colour are baked into
+// vertex colours so they sit flush on the skin (no floating stickers).
 const g2 = (x: number, y: number, cx: number, cy: number, s: number) =>
   Math.exp(-((x - cx) ** 2 + (y - cy) ** 2) / s);
-const headCache = new Map<string, THREE.BufferGeometry>();
-function headGeometry(skin: string, femme: boolean) {
-  const key = skin + femme;
+export const EYE = { x: 0.03, y: 0.014, r: 0.0118 };
+type HeadGeo = THREE.BufferGeometry & { userData: { eyeZ: number } };
+const headCache = new Map<string, HeadGeo>();
+const ax0 = Math.abs;
+function headGeometry(skin: string, hair: string, femme: boolean, child = false): HeadGeo {
+  const key = skin + hair + femme + child;
   const hit = headCache.get(key);
   if (hit) return hit;
-  const g = new THREE.SphereGeometry(0.1, 128, 96);
+  const g = new THREE.SphereGeometry(0.1, 192, 144) as unknown as HeadGeo;
   const p = g.attributes.position as THREE.BufferAttribute;
   const cols = new Float32Array(p.count * 3);
   const base = new THREE.Color(skin);
-  const lip = new THREE.Color(skin).lerp(new THREE.Color(femme ? "#b5525a" : "#a0504a"), 0.55);
-  const blush = new THREE.Color(skin).lerp(new THREE.Color("#d9776a"), 0.28);
-  const shadow = new THREE.Color(skin).multiplyScalar(0.82);
+  const lip = new THREE.Color(skin).lerp(new THREE.Color(femme ? "#a8505a" : "#9a5a52"), femme ? 0.5 : 0.35);
+  const blush = new THREE.Color(skin).lerp(new THREE.Color("#d9776a"), 0.22);
+  const shadow = new THREE.Color(skin).multiplyScalar(0.86);
+  const brow = new THREE.Color(hair).multiplyScalar(0.55).lerp(new THREE.Color(skin).multiplyScalar(0.5), 0.2);
+  const stubble = new THREE.Color(skin).lerp(new THREE.Color(hair), 0.18);
   const c = new THREE.Color();
   const v = new THREE.Vector3();
   const n = new THREE.Vector3();
@@ -104,34 +111,36 @@ function headGeometry(skin: string, femme: boolean) {
     n.copy(v).normalize();
     let { x, y, z } = v;
     // skull: taller, narrower, fuller at the back
-    y *= 1.13;
-    x *= 0.86;
+    y *= 1.12;
+    x *= 0.87;
     if (z < 0) z *= 1.06;
-    // jaw + chin taper below the cheekbones
-    if (y < -0.01) {
-      const k = Math.min(1, (-y - 0.01) / 0.1);
-      x *= 1 - k * (femme ? 0.42 : 0.34);
-      z = z * (1 - k * 0.18) + (z > 0 ? k * 0.006 : 0);
+    // jaw + chin: a gentle taper below the cheekbones (not a wedge)
+    if (y < -0.015) {
+      const k = Math.min(1, (-y - 0.015) / 0.095);
+      const kk = k * k * (3 - 2 * k);
+      x *= 1 - kk * (femme || child ? 0.3 : 0.22);
+      z = z * (1 - kk * 0.14) + (z > 0 ? kk * 0.004 : 0);
     }
     const front = THREE.MathUtils.smoothstep(n.z, 0.15, 0.6);
     let d = 0;
-    // eye sockets + brow ridge
-    d -= 0.0095 * (g2(x, y, 0.031, 0.016, 0.00028) + g2(x, y, -0.031, 0.016, 0.00028));
-    d += (femme ? 0.0025 : 0.0045) * Math.exp(-((y - 0.038) ** 2) / 0.00012) * Math.exp(-(x * x) / 0.0028);
-    // cheekbones
-    d += 0.0045 * (g2(x, y, 0.047, -0.008, 0.0004) + g2(x, y, -0.047, -0.008, 0.0004));
-    // nose: bridge → tip, then nostril wings
-    const bridge = Math.exp(-(x * x) / (femme ? 0.00009 : 0.00012));
-    const t = THREE.MathUtils.clamp((0.03 - y) / 0.05, 0, 1);
-    const below = y < -0.02 ? Math.exp(-((y + 0.02) ** 2) / 0.00004) : 1;
-    d += bridge * (0.004 + t * t * (femme ? 0.021 : 0.026)) * below * (y < 0.032 ? 1 : 0.4);
-    d += 0.006 * (g2(x, y, 0.013, -0.021, 0.00005) + g2(x, y, -0.013, -0.021, 0.00005));
+    // soft eye sockets + brow ridge
+    d -= 0.0055 * (g2(x, y, EYE.x, EYE.y, 0.0003) + g2(x, y, -EYE.x, EYE.y, 0.0003));
+    d += (femme || child ? 0.002 : 0.0035) * Math.exp(-((y - 0.036) ** 2) / 0.00012) * Math.exp(-(x * x) / 0.0028);
+    // cheekbones + soft cheeks
+    d += 0.004 * (g2(x, y, 0.046, -0.01, 0.0005) + g2(x, y, -0.046, -0.01, 0.0005));
+    // nose: a straight bridge into a rounded tip, with nostril wings
+    const bridge = Math.exp(-(x * x) / (femme || child ? 0.00014 : 0.00018));
+    const t = THREE.MathUtils.clamp((0.026 - y) / 0.046, 0, 1);
+    const below = y < -0.02 ? Math.exp(-((y + 0.02) ** 2) / 0.00003) : 1;
+    d += bridge * (0.003 + t * t * (child ? 0.009 : femme ? 0.012 : 0.015)) * below * (1 - THREE.MathUtils.smoothstep(y, 0.018, 0.03));
+    d += (femme || child ? 0.0052 : 0.0065) * g2(x, y, 0, -0.016, 0.00007);
+    d += 0.0045 * (g2(x, y, 0.012, -0.02, 0.00006) + g2(x, y, -0.012, -0.02, 0.00006));
     // lips + philtrum + mouth line + chin
-    const lipW = Math.exp(-(x * x) / 0.0005);
-    d += lipW * (0.0055 * Math.exp(-((y + 0.043) ** 2) / 0.00002) + 0.0065 * Math.exp(-((y + 0.054) ** 2) / 0.000025));
-    d -= lipW * 0.0035 * Math.exp(-((y + 0.0485) ** 2) / 0.000003);
-    d += 0.006 * g2(x, y, 0, -0.083, 0.0004);
-    d -= 0.002 * g2(x, y, 0, -0.068, 0.00008);
+    const lipW = Math.exp(-(x * x) / 0.0003);
+    d += lipW * (0.003 * Math.exp(-((y + 0.041) ** 2) / 0.00002) + 0.005 * Math.exp(-((y + 0.051) ** 2) / 0.000025));
+    d -= lipW * 0.0022 * Math.exp(-((y + 0.0465) ** 2) / 0.000003);
+    d += 0.005 * g2(x, y, 0, -0.08, 0.0004);
+    d -= 0.0015 * g2(x, y, 0, -0.064, 0.00008);
     v.set(x, y, z).addScaledVector(n, d * front);
     p.setXYZ(i, v.x, v.y, v.z);
 
@@ -139,52 +148,209 @@ function headGeometry(skin: string, femme: boolean) {
     c.copy(base);
     const cheek = front * (g2(x, y, 0.045, -0.025, 0.0006) + g2(x, y, -0.045, -0.025, 0.0006));
     c.lerp(blush, Math.min(1, cheek));
-    const lipMask = front * lipW * (Math.exp(-((y + 0.043) ** 2) / 0.00003) + Math.exp(-((y + 0.055) ** 2) / 0.00004));
-    c.lerp(lip, Math.min(1, lipMask * 1.2));
-    const sock = front * (g2(x, y, 0.031, 0.016, 0.0002) + g2(x, y, -0.031, 0.016, 0.0002));
-    c.lerp(shadow, Math.min(0.7, sock));
+    if (!femme && !child) {
+      // faint shadow of stubble along the jaw and upper lip
+      const jaw = front * THREE.MathUtils.smoothstep(-y, 0.035, 0.06) * (1 - Math.exp(-((y + 0.046) ** 2) / 0.00006) * lipW);
+      c.lerp(stubble, Math.min(1, jaw));
+    }
+    // lips: crisp shapes with a cupid's bow, a darker parting line
+    const ss = THREE.MathUtils.smoothstep;
+    const bow = 0.0012 * Math.exp(-((ax0(x) - 0.006) ** 2) / 0.00002);
+    const upperLip = (1 - ss(Math.abs(x), 0.016, 0.022)) * ss(y, -0.0468, -0.0462) * (1 - ss(y, -0.0395 + bow, -0.0385 + bow));
+    const lowerLip = (1 - ss(Math.abs(x), 0.013, 0.019)) * ss(y, -0.0565, -0.0545) * (1 - ss(y, -0.0472, -0.0466));
+    c.lerp(lip, Math.min(1, front * Math.max(upperLip, lowerLip * 0.9) * 1.3));
+    c.lerp(shadow.clone().multiplyScalar(0.62), front * (1 - ss(Math.abs(x), 0.017, 0.023)) * Math.exp(-((y + 0.0466) ** 2) / 0.0000016) * 0.9);
+    const sock = front * (g2(x, y, EYE.x, EYE.y + 0.004, 0.00025) + g2(x, y, -EYE.x, EYE.y + 0.004, 0.00025));
+    c.lerp(shadow, Math.min(0.4, sock));
+    // eyebrows: arched, thicker toward the nose, tapering outward
+    const ax = ax0(x);
+    if (ax > 0.008 && ax < 0.054) {
+      const u = (ax - 0.008) / 0.046;
+      const archY = 0.029 + Math.sin(u * Math.PI * 0.85) * 0.005 - u * 0.002;
+      const half = (femme || child ? 0.0032 : 0.0046) * (1 - u * 0.5);
+      const m = 1 - THREE.MathUtils.smoothstep(Math.abs(y - archY), half * 0.5, half * 1.25);
+      const edge = THREE.MathUtils.smoothstep(u, 0, 0.12) * (1 - THREE.MathUtils.smoothstep(u, 0.85, 1));
+      c.lerp(brow, Math.min(1, front * m * edge * 1.1));
+    }
     cols[i * 3] = c.r;
     cols[i * 3 + 1] = c.g;
     cols[i * 3 + 2] = c.b;
   }
   g.setAttribute("color", new THREE.BufferAttribute(cols, 3));
   g.computeVertexNormals();
+  // where the skin sits at the eye, so the eyeball can be seated in the socket
+  const probe = new THREE.Mesh(g);
+  const ray = new THREE.Raycaster(new THREE.Vector3(EYE.x, EYE.y, 1), new THREE.Vector3(0, 0, -1));
+  g.userData.eyeZ = ray.intersectObject(probe)[0]?.point.z ?? 0.085;
   headCache.set(key, g);
   return g;
 }
 const headSkin = new THREE.MeshPhysicalMaterial({
   vertexColors: true,
-  roughness: 0.52,
-  clearcoat: 0.12,
-  clearcoatRoughness: 0.55,
-  sheen: 0.5,
+  roughness: 0.55,
+  clearcoat: 0.08,
+  clearcoatRoughness: 0.6,
+  sheen: 0.45,
   sheenRoughness: 0.5,
   sheenColor: new THREE.Color("#ffb4a0"),
 });
-const sclera = new THREE.MeshPhysicalMaterial({ color: "#efe9e2", roughness: 0.15, clearcoat: 1, clearcoatRoughness: 0.05 });
-const pupil = new THREE.MeshStandardMaterial({ color: "#050505", roughness: 0.1 });
 
-function Eye({ side, iris, skin }: { side: 1 | -1; iris: string; skin: string }) {
+// Eyeball texture in sphere-UV space: the iris sits at u=0.25 (facing +Z).
+const eyeCache = new Map<string, THREE.MeshPhysicalMaterial>();
+function eyeMaterial(iris: string) {
+  const hit = eyeCache.get(iris);
+  if (hit) return hit;
+  const W = 512;
+  const H = 256;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const ctx = cv.getContext("2d")!;
+  ctx.fillStyle = "#e6ddd3";
+  ctx.fillRect(0, 0, W, H);
+  // warmer, slightly pink toward the corners
+  const cx = W * 0.25;
+  const cy = H * 0.5;
+  const sc = ctx.createRadialGradient(cx, cy, 20, cx, cy, 130);
+  sc.addColorStop(0, "rgba(0,0,0,0)");
+  sc.addColorStop(1, "rgba(190,120,110,0.45)");
+  ctx.fillStyle = sc;
+  ctx.fillRect(0, 0, W, H);
+  const R = 36; // ≈ 25° iris
+  const col = new THREE.Color(iris);
+  const hex = (k: number) => "#" + col.clone().multiplyScalar(k).getHexString();
+  const ig = ctx.createRadialGradient(cx, cy, 4, cx, cy, R);
+  ig.addColorStop(0, hex(1.6));
+  ig.addColorStop(0.55, hex(1.1));
+  ig.addColorStop(0.88, hex(0.7));
+  ig.addColorStop(1, hex(0.25));
+  ctx.fillStyle = ig;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fill();
+  // iris fibres
+  const r = rng(iris.length * 31 + 7);
+  ctx.lineWidth = 1;
+  for (let k = 0; k < 140; k++) {
+    const a = r() * Math.PI * 2;
+    ctx.strokeStyle = r() > 0.5 ? `rgba(255,240,210,${0.08 + r() * 0.12})` : `rgba(0,0,0,${0.1 + r() * 0.15})`;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * 11, cy + Math.sin(a) * 11);
+    ctx.lineTo(cx + Math.cos(a) * (R - 3), cy + Math.sin(a) * (R - 3));
+    ctx.stroke();
+  }
+  ctx.fillStyle = "#070605";
+  ctx.beginPath();
+  ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+  ctx.fill();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 4;
+  const m = new THREE.MeshPhysicalMaterial({ map: tex, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.03 });
+  eyeCache.set(iris, m);
+  return m;
+}
+const lashMat = new THREE.MeshStandardMaterial({ color: "#1a120d", roughness: 0.8 });
+const EYE_GEO = new THREE.SphereGeometry(EYE.r, 40, 28);
+// lids: shells slightly larger than the eyeball, leaving an almond opening
+const LID_R = EYE.r * 1.07;
+const UP = 0.5; // upper lid edge, radians above the eye's centre
+const LO = 0.52; // lower lid edge, radians below
+const LID_UP = new THREE.SphereGeometry(LID_R, 32, 12, 0, Math.PI * 2, 0, Math.PI / 2 - UP);
+const LID_LO = new THREE.SphereGeometry(LID_R, 32, 8, 0, Math.PI * 2, Math.PI / 2 + LO, Math.PI / 2 - LO);
+const LASH_UP = new THREE.TorusGeometry(LID_R * Math.cos(UP), 0.0006, 6, 40);
+const LASH_LO = new THREE.TorusGeometry(LID_R * Math.cos(LO), 0.00035, 5, 40);
+
+function Eye({ side, iris, skin, z }: { side: 1 | -1; iris: string; skin: string; z: number }) {
+  const lid = toon(skin, "skin");
   return (
-    <group position={[side * 0.0305, 0.0155, 0.0735]}>
-      <mesh material={sclera}>
-        <sphereGeometry args={[0.0118, 24, 18]} />
-      </mesh>
-      <mesh position={[0, 0, 0.0098]} material={toon(iris, "metal")}>
-        <circleGeometry args={[0.0058, 24]} />
-      </mesh>
-      <mesh position={[0, 0, 0.0101]} material={pupil}>
-        <circleGeometry args={[0.0025, 20]} />
-      </mesh>
-      {/* upper + lower lids */}
-      <mesh rotation={[-0.35, 0, 0]} material={toon(skin, "skin")}>
-        <sphereGeometry args={[0.0128, 24, 12, 0, Math.PI * 2, 0, Math.PI * 0.42]} />
-      </mesh>
-      <mesh rotation={[Math.PI + 0.45, 0, 0]} material={toon(skin, "skin")}>
-        <sphereGeometry args={[0.0124, 24, 8, 0, Math.PI * 2, 0, Math.PI * 0.22]} />
-      </mesh>
+    // seated so ~half the eyeball shows through the socket; a slight outward gaze
+    <group position={[side * EYE.x, EYE.y, z - EYE.r * 0.5]} rotation={[0, side * 0.06, 0]}>
+      <mesh geometry={EYE_GEO} material={eyeMaterial(iris)} rotation={[0, -side * 0.06, 0]} />
+      <group rotation={[0.03, 0, side * -0.05]}>
+        <mesh geometry={LID_UP} material={lid} />
+        <mesh geometry={LASH_UP} material={lashMat} position={[0, LID_R * Math.sin(UP), 0]} rotation={[Math.PI / 2, 0, 0]} />
+        <mesh geometry={LID_LO} material={lid} />
+        <mesh geometry={LASH_LO} material={lashMat} position={[0, -LID_R * Math.sin(LO), 0]} rotation={[Math.PI / 2, 0, 0]} />
+      </group>
     </group>
   );
+}
+
+// ── Phone: white body, screen showing a message with a moon photo ─────────
+const phoneBody = new THREE.MeshPhysicalMaterial({ color: "#f4f3ef", roughness: 0.35, clearcoat: 0.8, clearcoatRoughness: 0.2 });
+let screenMat: THREE.MeshBasicMaterial | null = null;
+function phoneScreen() {
+  if (screenMat) return screenMat;
+  const W = 256;
+  const H = 540;
+  const cv = document.createElement("canvas");
+  cv.width = W;
+  cv.height = H;
+  const c = cv.getContext("2d")!;
+  c.fillStyle = "#f7f7f9";
+  c.fillRect(0, 0, W, H);
+  // header
+  c.fillStyle = "#e9e9ee";
+  c.fillRect(0, 0, W, 70);
+  c.fillStyle = "#c9a26a";
+  c.beginPath();
+  c.arc(W / 2, 30, 16, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = "#222";
+  c.font = "600 15px sans-serif";
+  c.textAlign = "center";
+  c.fillText("Otto", W / 2, 62);
+  // photo bubble: night sky with the moon
+  const px = 70, py = 120, pw = 170, ph = 200;
+  const sky = c.createLinearGradient(0, py, 0, py + ph);
+  sky.addColorStop(0, "#0d1730");
+  sky.addColorStop(1, "#2a3a62");
+  c.save();
+  c.beginPath();
+  c.roundRect(px, py, pw, ph, 18);
+  c.clip();
+  c.fillStyle = sky;
+  c.fillRect(px, py, pw, ph);
+  const glow = c.createRadialGradient(px + 105, py + 70, 10, px + 105, py + 70, 70);
+  glow.addColorStop(0, "rgba(255,250,230,0.55)");
+  glow.addColorStop(1, "rgba(255,250,230,0)");
+  c.fillStyle = glow;
+  c.fillRect(px, py, pw, ph);
+  c.fillStyle = "#fbf6e6";
+  c.beginPath();
+  c.arc(px + 105, py + 70, 26, 0, Math.PI * 2);
+  c.fill();
+  c.fillStyle = "rgba(150,140,120,0.35)";
+  for (const [dx, dy, r] of [[-8, -6, 6], [7, 8, 5], [10, -10, 3.5]]) {
+    c.beginPath();
+    c.arc(px + 105 + dx, py + 70 + dy, r, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.fillStyle = "#0b0f1c";
+  c.fillRect(px, py + ph - 40, pw, 40);
+  c.restore();
+  // message bubble
+  c.fillStyle = "#2f7cf6";
+  c.beginPath();
+  c.roundRect(96, 340, 144, 46, 22);
+  c.fill();
+  c.fillStyle = "#fff";
+  c.font = "600 19px sans-serif";
+  c.fillText("moon i win", 168, 370);
+  c.fillStyle = "#9a9aa2";
+  c.font = "12px sans-serif";
+  c.fillText("Delivered", 200, 404);
+  // input bar
+  c.fillStyle = "#e9e9ee";
+  c.beginPath();
+  c.roundRect(16, H - 56, W - 32, 36, 18);
+  c.fill();
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  screenMat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, color: new THREE.Color(1.15, 1.15, 1.15) });
+  return screenMat;
 }
 
 // Shared body geometry (realistic adult proportions, ~1.78m tall).
@@ -200,14 +366,10 @@ const GEO = {
   upper: new THREE.CapsuleGeometry(0.05, 0.22, 6, 12),
   fore: new THREE.CapsuleGeometry(0.043, 0.2, 6, 12),
   hand: new THREE.SphereGeometry(0.043, 14, 10),
-  neck: new THREE.CylinderGeometry(0.046, 0.052, 0.12, 14),
-  cranium: new THREE.SphereGeometry(0.104, 28, 20),
-  jaw: new THREE.SphereGeometry(0.084, 24, 16),
-  nose: new THREE.ConeGeometry(0.017, 0.045, 10),
+  neck: new THREE.CylinderGeometry(0.054, 0.06, 0.12, 18),
   ear: new THREE.SphereGeometry(0.022, 10, 8),
-  eye: new THREE.SphereGeometry(0.0115, 10, 8),
-  hairCap: hairGeometry(0.106, 0.58, 7),
-  hairLong: hairGeometry(0.108, 0.8, 9),
+  hairCap: hairGeometry(0.106, 0.6, 7),
+  hairLong: hairGeometry(0.108, 0.53, 9),
   beanie: new THREE.SphereGeometry(0.118, 28, 14, 0, Math.PI * 2, 0, Math.PI * 0.5),
   hood: new THREE.SphereGeometry(0.135, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.62),
 };
@@ -273,6 +435,31 @@ function Arm({
   );
 }
 
+function Head({ look }: { look: Look }) {
+  const geo = headGeometry(look.skin, look.hair, look.hat === "bun", look.child);
+  return (
+    <>
+      <mesh geometry={geo} material={headSkin} />
+      {[1, -1].map((side) => (
+        <group key={side}>
+          <Eye side={side as 1 | -1} iris={look.iris ?? "#5a3b24"} skin={look.skin} z={geo.userData.eyeZ} />
+          <mesh geometry={GEO.ear} position={[side * 0.086, 0.0, -0.006]} scale={[0.42, 1.0, 0.75]} material={toon(look.skin, "skin")} />
+        </group>
+      ))}
+      {look.hat !== "hood" && look.hat !== "beanie" && (
+        // hairline sits high on the forehead and drops to the nape at the back
+        <mesh
+          geometry={look.hat === "bun" ? GEO.hairLong : GEO.hairCap}
+          position={[0, 0.006, -0.008]}
+          rotation={[-0.62, 0, 0]}
+          scale={[0.91, 1.04, 1]}
+          material={toon(look.hair)}
+        />
+      )}
+    </>
+  );
+}
+
 export default function Character({
   look,
   track,
@@ -280,7 +467,7 @@ export default function Character({
 }: {
   look: Look;
   track?: Pose[];
-  still?: { x: number; y: number; z: number; rot: number; point?: THREE.Vector3; sway?: number };
+  still?: { x: number; y: number; z: number; rot: number; point?: THREE.Vector3; sway?: number; lookUp?: number };
 }) {
   const root = useRef<THREE.Group>(null);
   const bob = useRef<THREE.Group>(null);
@@ -405,7 +592,7 @@ export default function Character({
     }
 
     if (head.current) {
-      const lookUp = pose.armR.point + pose.armR.phone * 0.8 + pose.armL.up * 0.4 + pose.armR.up * 0.3;
+      const lookUp = pose.armR.point + pose.armR.phone * 0.8 + pose.armL.up * 0.4 + pose.armR.up * 0.3 + (still?.lookUp ?? 0);
       head.current.rotation.x = -0.35 * clamp(lookUp);
       head.current.rotation.z = 0.04 + Math.sin(time * 0.7 + pose.z) * 0.025;
       head.current.rotation.y = Math.sin(time * 0.31 + pose.x) * 0.08 * (1 - lookUp);
@@ -461,12 +648,12 @@ export default function Character({
         <Arm side={1} look={look} armRef={armL} elbowRef={elbowL} />
         <Arm side={-1} look={look} armRef={armR} elbowRef={elbowR}>
           <group ref={phone} position={[0, 0.05, 0.36]} rotation={[-1.2, 0, 0]}>
-            <mesh material={toon("#1a1a22", "metal")}>
-              <boxGeometry args={[0.075, 0.15, 0.009]} />
+            {/* white phone; the lit screen (a photo of the moon being sent) faces whoever holds it */}
+            <mesh material={phoneBody}>
+              <boxGeometry args={[0.078, 0.158, 0.009]} />
             </mesh>
-            <mesh position={[0, 0, -0.006]} rotation={[0, Math.PI, 0]}>
-              <planeGeometry args={[0.066, 0.135]} />
-              <meshBasicMaterial color={new THREE.Color("#bfe6ff").multiplyScalar(2)} />
+            <mesh position={[0, 0, 0.0052]} material={phoneScreen()}>
+              <planeGeometry args={[0.07, 0.148]} />
             </mesh>
           </group>
         </Arm>
@@ -477,26 +664,13 @@ export default function Character({
           </mesh>
         )}
 
-        <mesh geometry={GEO.neck} position={[0, 1.55, 0.005]} material={toon(look.skin, "skin")} />
+        <mesh geometry={GEO.neck} position={[0, 1.535, 0.006]} material={toon(look.skin, "skin")} />
 
         {/* head */}
-        <group ref={head} position={[0, 1.67, 0.01]}>
-          <mesh geometry={headGeometry(look.skin, look.hat === "bun")} material={headSkin} />
-          {[1, -1].map((side) => (
-            <group key={side}>
-              <Eye side={side as 1 | -1} iris={look.iris ?? "#4a3322"} skin={look.skin} />
-              <mesh geometry={GEO.ear} position={[side * 0.086, 0.002, -0.004]} scale={[0.45, 1.05, 0.8]} material={toon(look.skin, "skin")} />
-              {/* eyebrow: a slim arched stroke */}
-              <mesh position={[side * 0.031, 0.036, 0.084]} rotation={[0.15, side * 0.2, Math.PI / 2 + side * 0.1]} material={toon(look.hair)}>
-                <capsuleGeometry args={[0.0028, 0.022, 3, 8]} />
-              </mesh>
-            </group>
-          ))}
-          {look.hat !== "hood" && (
-            <mesh geometry={look.hat === "bun" ? GEO.hairLong : GEO.hairCap} position={[0, 0.03, -0.012]} rotation={[-0.42, 0, 0]} material={toon(look.hair)} />
-          )}
+        <group ref={head} position={[0, 1.64, 0.014]} scale={look.child ? 1.14 : 1}>
+          <Head look={look} />
           {look.hat === "beanie" && (
-            <group position={[0, 0.045, -0.008]} rotation={[-0.22, 0, 0.06]}>
+            <group position={[0, 0.032, -0.008]} rotation={[-0.22, 0, 0.06]}>
               <mesh geometry={GEO.beanie} scale={[0.96, 1.06, 1]} material={fabric(look.hatColor ?? "#d33", "knit", 6, 3)} />
               <mesh rotation={[Math.PI / 2, 0, 0]} material={fabric(look.hatColor ?? "#d33", "knit", 6, 3)}>
                 <torusGeometry args={[0.112, 0.018, 8, 32]} />
@@ -505,11 +679,13 @@ export default function Character({
           )}
           {look.hat === "bun" && (
             <>
-              <mesh position={[0, 0.1, -0.075]} material={toon(look.hair)}>
-                <sphereGeometry args={[0.048, 14, 12]} />
+              {/* bun sitting on the crown-back of the hair, and hair down to the nape
+                  (back half only, hugging the skull) */}
+              <mesh position={[0, 0.082, -0.104]} scale={[1, 0.9, 0.9]} material={toon(look.hair)}>
+                <sphereGeometry args={[0.042, 18, 14]} />
               </mesh>
-              <mesh position={[0, 0.0, -0.06]} scale={[1.02, 1.0, 1.0]} material={toon(look.hair)}>
-                <sphereGeometry args={[0.106, 24, 16, 0, Math.PI * 2, Math.PI * 0.35, Math.PI * 0.45]} />
+              <mesh position={[0, 0.004, -0.01]} scale={[0.92, 1.1, 1.04]} material={toon(look.hair)}>
+                <sphereGeometry args={[0.104, 28, 14, Math.PI, Math.PI, Math.PI * 0.4, Math.PI * 0.38]} />
               </mesh>
             </>
           )}

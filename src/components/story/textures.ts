@@ -255,6 +255,22 @@ export const earth = () =>
     speckle(bump, s, rand, 28000, () => (rand() < 0.5 ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.15)"), [0.5, 3]);
   }, 81);
 
+/** Pale crushed-stone gravel with tyre-worn darker patches. */
+export const gravel = () =>
+  make("gravel", 1024, (ctx, bump, s, rand) => {
+    ctx.fillStyle = "#9a9284";
+    ctx.fillRect(0, 0, s, s);
+    bump.fillStyle = "#808080";
+    bump.fillRect(0, 0, s, s);
+    speckle(ctx, s, rand, 900, () => `rgba(70,62,52,${0.05 + rand() * 0.08})`, [20, 60]);
+    speckle(ctx, s, rand, 26000, () => {
+      const v = 120 + rand() * 110;
+      return `rgba(${v},${v * 0.95},${v * 0.86},0.85)`;
+    }, [1, 3.2]);
+    speckle(ctx, s, rand, 6000, () => `rgba(40,36,30,0.5)`, [0.8, 2]);
+    speckle(bump, s, rand, 30000, () => (rand() < 0.5 ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.35)"), [1, 3]);
+  }, 91);
+
 export function repeat<T extends { map: THREE.Texture; bump: THREE.Texture }>(t: T, x: number, y: number): T {
   // clone so each surface can tile differently while sharing the image
   const map = t.map.clone();

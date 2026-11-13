@@ -7,7 +7,7 @@ import * as THREE from "three";
 import World from "./World";
 import ClaimWinModal from "../ClaimWinModal";
 import { chapters, CHAPTER_COUNT, chapterIndex, cues, SPEAKER, type Cue } from "./chapters";
-import { story } from "./state";
+import { story, headAnchors } from "./state";
 import { toasterTrigger } from "./Props";
 import { player, locate, TOTAL, voStart, cueStart, toggle, restart, rewind, next, prev, seekChapter, currentChapter, starts } from "./timeline";
 import { sound } from "./audio";
@@ -118,7 +118,7 @@ function Caption({ index }: { index: number }) {
 function Logo({ size = "lg" }: { size?: "lg" | "sm" }) {
   return (
     <span className={size === "lg" ? "logo logo-lg" : "logo logo-sm"}>
-      moon<span className="logo-comma">,</span> i win
+      moon i win
     </span>
   );
 }
@@ -160,7 +160,7 @@ function TitleCard({ onPlay, started }: { onPlay: () => void; started: boolean }
             <span>Play</span>
           </button>
           <span className="text-white/60 text-xs sm:text-sm tracking-[0.2em] uppercase">
-            press space &nbsp;·&nbsp; or scroll your way through
+            or press space
           </span>
         </motion.div>
       )}
@@ -168,16 +168,44 @@ function TitleCard({ onPlay, started }: { onPlay: () => void; started: boolean }
   );
 }
 
+/** A spoken line, floating just above the speaker's head (bottom-centre when they're off screen). */
 function Subtitle({ cue }: { cue: Cue | null }) {
+  const box = useRef<HTMLDivElement>(null);
+  const who = cue?.who;
+  useEffect(() => {
+    if (!who) return;
+    let raf = 0;
+    const place = () => {
+      raf = requestAnimationFrame(place);
+      const el = box.current;
+      if (!el) return;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const a = headAnchors[who];
+      let x = vw / 2;
+      let y = vh - (vw < 640 ? 112 : 124) - h;
+      if (a.ok) {
+        x = a.x;
+        y = a.y - h - 18;
+      }
+      x = Math.min(vw - 12 - w / 2, Math.max(12 + w / 2, x));
+      y = Math.min(vh - 120 - h, Math.max(vw < 640 ? 76 : 92, y));
+      el.style.transform = `translate3d(${(x - w / 2).toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+    };
+    place();
+    return () => cancelAnimationFrame(raf);
+  }, [who]);
   return (
-    <div className="absolute inset-x-0 bottom-[112px] sm:bottom-[124px] flex justify-center px-6 pointer-events-none">
-      <AnimatePresence mode="popLayout">
+    <div ref={box} className="absolute left-0 top-0 w-max pointer-events-none will-change-transform">
+      <AnimatePresence mode="wait">
         {cue && (
           <motion.p
             key={cue.text + cue.chapter}
-            className="subtitle"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
+            className="subtitle subtitle-bubble"
+            initial={{ opacity: 0, y: 6, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, transition: { duration: 0.2 } }}
             transition={{ duration: 0.25 }}
           >
@@ -218,7 +246,7 @@ function PhoneText() {
     >
       <div className="phone">
         <div className="phone-header">
-          <span className="phone-avatar">S</span>Sam
+          <span className="phone-avatar">O</span>Otto
         </div>
         <div className="phone-msg phone-out phone-photo">
           <div className="phone-moon" />
@@ -367,6 +395,27 @@ function Controls({ view, muted, onPlay, onMute }: { view: View; muted: boolean;
   );
 }
 
+/** "link copied" confirmation, shown right beside the button that was pressed. */
+function CopiedToast({ show, className = "" }: { show: boolean; className?: string }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          key="copied"
+          className={`toast ${className}`}
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.2 }}
+          role="status"
+        >
+          mooniwin.com copied to clipboard
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
 function Finale({ onChallenge, onClaim, copied }: { onChallenge: (e: React.MouseEvent) => void; onClaim: () => void; copied: boolean }) {
   return (
     <motion.div
@@ -376,9 +425,12 @@ function Finale({ onChallenge, onClaim, copied }: { onChallenge: (e: React.Mouse
       exit={{ opacity: 0, y: 10 }}
       transition={{ delay: 1, duration: 1 }}
     >
-      <button onClick={onChallenge} className="cta cta-primary">
-        {copied ? "link copied" : "challenge someone"}
-      </button>
+      <div className="relative">
+        <button onClick={onChallenge} className="cta cta-primary">
+          challenge someone
+        </button>
+        <CopiedToast show={copied} className="absolute left-1/2 -translate-x-1/2 top-full mt-2" />
+      </div>
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -395,7 +447,7 @@ function Finale({ onChallenge, onClaim, copied }: { onChallenge: (e: React.Mouse
 // ── Main ───────────────────────────────────────────────────────────────────
 export default function StoryExperience() {
   const view = useView();
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<null | "nav" | "cta">(null);
   const [claimOpen, setClaimOpen] = useState(false);
   const [muted, setMuted] = useState(() => sound.muted);
   const [lite] = useState(() => window.matchMedia("(max-width: 768px), (pointer: coarse)").matches);
@@ -417,49 +469,14 @@ export default function StoryExperience() {
     // deep link to a scene: /?c=6 opens chapter 7 with the camera already there
     const c = Number(new URLSearchParams(window.location.search).get("c"));
     if (Number.isInteger(c) && c > 0 && c < CHAPTER_COUNT) {
-      player.playhead = starts[c] + Math.max(voStart(c), 3.2);
+      // optional &s=seconds into the scene (e.g. to land on a spoken line)
+      const sec = Number(new URLSearchParams(window.location.search).get("s"));
+      player.playhead = starts[c] + (sec > 0 ? sec : Math.max(voStart(c), 3.2));
       player.started = true;
     }
     const prevOverflow = html.style.overflow;
     html.style.overflow = "hidden";
 
-    // one wheel/trackpad gesture = one chapter; momentum tails are ignored
-    let lastWheel = 0;
-    let consumed = false;
-    let acc = 0;
-    const onWheel = (e: WheelEvent) => {
-      if (claimRef.current) return;
-      e.preventDefault();
-      const now = performance.now();
-      if (now - lastWheel > 220) {
-        consumed = false;
-        acc = 0;
-      }
-      lastWheel = now;
-      if (consumed) return;
-      acc += e.deltaY + e.deltaX;
-      if (Math.abs(acc) > 30) {
-        consumed = true;
-        if (acc > 0) next();
-        else prev();
-      }
-    };
-    let touchY = 0;
-    let touchX = 0;
-    const onTouchStart = (e: TouchEvent) => {
-      touchY = e.touches[0].clientY;
-      touchX = e.touches[0].clientX;
-    };
-    const onTouchEnd = (e: TouchEvent) => {
-      if (claimRef.current) return;
-      const dy = touchY - e.changedTouches[0].clientY;
-      const dx = touchX - e.changedTouches[0].clientX;
-      const d = Math.abs(dy) > Math.abs(dx) ? dy : dx;
-      if (Math.abs(d) > 45) {
-        if (d > 0) next();
-        else prev();
-      }
-    };
     const onKey = (e: KeyboardEvent) => {
       if (claimRef.current) return;
       const tag = (e.target as HTMLElement)?.tagName;
@@ -478,6 +495,7 @@ export default function StoryExperience() {
         e.preventDefault();
         prev();
       } else if (e.key === "r") {
+        void sound.init();
         restart();
       } else if (e.key === "m") {
         sound.toggleMuted();
@@ -486,37 +504,25 @@ export default function StoryExperience() {
     const onMove = (e: PointerEvent) => {
       story.pointer.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
     };
-    window.addEventListener("wheel", onWheel, { passive: false });
-    window.addEventListener("touchstart", onTouchStart, { passive: true });
-    window.addEventListener("touchend", onTouchEnd, { passive: true });
     window.addEventListener("keydown", onKey);
     window.addEventListener("pointermove", onMove);
     return () => {
       html.style.overflow = prevOverflow;
-      window.removeEventListener("wheel", onWheel);
-      window.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchend", onTouchEnd);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointermove", onMove);
     };
   }, []);
 
-  const handleChallenge = useCallback(async (e: React.MouseEvent) => {
+  const handleChallenge = useCallback(async (e: React.MouseEvent, from: "nav" | "cta" = "nav") => {
     e.stopPropagation();
     toasterTrigger.at = story.time;
-    const url = "https://mooniwin.com/";
-    if (navigator.share) {
-      try {
-        await navigator.share({ url });
-        return;
-      } catch {
-        /* user cancelled */
-      }
+    try {
+      await navigator.clipboard.writeText("https://mooniwin.com/");
+    } catch {
+      /* clipboard blocked: still tell them where to send people */
     }
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    setCopied(from);
+    setTimeout(() => setCopied(null), 2600);
   }, []);
 
   const onMute = useCallback(() => sound.toggleMuted(), []);
@@ -545,7 +551,6 @@ export default function StoryExperience() {
         <World lite={lite} />
       </Canvas>
 
-      <div className="letterbox letterbox-top" aria-hidden />
       <div className="letterbox letterbox-bottom" aria-hidden />
 
       <div className="absolute inset-0 z-10 pointer-events-none">
@@ -556,7 +561,7 @@ export default function StoryExperience() {
         <AnimatePresence>{settled && view.chapter === fakeIdx && view.local > 2.0 && <Disqualified key="dq" />}</AnimatePresence>
         <AnimatePresence>{settled && view.chapter === textIdx && view.local > phoneAt && <PhoneText key="phone" />}</AnimatePresence>
         <AnimatePresence>
-          {isFinale && <Finale key="finale" onChallenge={handleChallenge} onClaim={() => setClaimOpen(true)} copied={copied} />}
+          {isFinale && <Finale key="finale" onChallenge={(e) => handleChallenge(e, "cta")} onClaim={() => setClaimOpen(true)} copied={copied === "cta"} />}
         </AnimatePresence>
         <Subtitle cue={view.cue} />
         <Controls view={view} muted={muted} onPlay={startPlayback} onMute={onMute} />
@@ -567,16 +572,18 @@ export default function StoryExperience() {
           <button
             onClick={(e) => {
               e.stopPropagation();
+              void sound.init();
               restart();
             }}
-            aria-label="moon, i win: back to the start"
+            aria-label="moon i win: back to the start"
           >
             <Logo size="sm" />
           </button>
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button onClick={handleChallenge} className="nav-btn">
-              {copied ? "copied" : "challenge someone"}
+          <div className="relative flex items-center gap-2 sm:gap-3">
+            <button onClick={(e) => handleChallenge(e, "nav")} className="nav-btn">
+              challenge someone
             </button>
+            <CopiedToast show={copied === "nav"} className="absolute right-0 top-full mt-2" />
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -591,7 +598,7 @@ export default function StoryExperience() {
       </header>
 
       <section className="sr-only">
-        <h1>moon, i win!</h1>
+        <h1>moon i win!</h1>
         {chapters
           .flatMap((c) => [...c.lines, ...(c.big ? [c.big] : [])])
           .map((l, i) => (

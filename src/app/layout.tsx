@@ -7,29 +7,29 @@ import "./globals.css";
 const display = Anton({ weight: "400", subsets: ["latin"], variable: "--font-anton" });
 
 export const metadata: Metadata = {
-  title: "moon, i win!",
-  description: "I challenge you to play Moon, I Win!",
+  title: "moon i win!",
+  description: "I challenge you to play Moon I Win!",
   keywords: ["moon", "game", "outdoor game", "moon i win", "daily game", "fun game"],
-  authors: [{ name: "moon, i win!" }],
+  authors: [{ name: "moon i win!" }],
   openGraph: {
-    title: "I challenge you to play Moon, I Win!",
-    description: "I challenge you to play Moon, I Win!",
+    title: "I challenge you to play Moon I Win!",
+    description: "I challenge you to play Moon I Win!",
     url: "https://mooniwin.com",
-    siteName: "moon, i win!",
+    siteName: "moon i win!",
     type: "website",
     images: [{ url: "https://mooniwin.com/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "I challenge you to play Moon, I Win!",
-    description: "I challenge you to play Moon, I Win!",
+    title: "I challenge you to play Moon I Win!",
+    description: "I challenge you to play Moon I Win!",
     images: ["https://mooniwin.com/og-image.png"],
   },
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "moon, i win!",
+    title: "moon i win!",
   },
 };
 

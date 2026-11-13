@@ -82,7 +82,7 @@ html {
 }
 
 
-/* ---- moon, i win! : the film ---- */
+/* ---- moon i win! : the film ---- */
 :root {
   --gold: #f2c98a;
   --ember: #ff8a5c;
@@ -112,11 +112,7 @@ html, body, button, a, .story-root {
 .logo-sm {
   font-size: 22px;
   letter-spacing: 0.08em;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-}
-.logo-comma {
-  color: var(--ember);
-  -webkit-text-fill-color: var(--ember);
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)) drop-shadow(0 2px 10px rgba(0, 0, 0, 0.35));
 }
 
 .cine-kicker {
@@ -158,6 +154,30 @@ html, body, button, a, .story-root {
   padding: 6px 14px;
   border-radius: 6px;
 }
+/* spoken line floating over the speaker, with a small tail pointing down at them */
+.subtitle-bubble {
+  position: relative;
+  font-size: clamp(15px, 1.4vw, 19px);
+  line-height: 1.3;
+  padding: 7px 14px 8px;
+  border-radius: 12px;
+  background: rgba(5, 7, 15, 0.62);
+  /* spoken lines are short: keep them on one line so the bubble never re-wraps as it fades */
+  white-space: nowrap;
+  max-width: none;
+}
+.subtitle-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  transform: translateX(-50%) rotate(45deg);
+  background: rgba(5, 7, 15, 0.62);
+  border-radius: 2px;
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
 .subtitle-who {
   font-family: var(--font-geist-mono), monospace;
   font-size: 0.62em;
@@ -178,7 +198,6 @@ html, body, button, a, .story-root {
   z-index: 5;
   pointer-events: none;
 }
-.letterbox-top { top: 0; background: linear-gradient(#000, rgba(0,0,0,0.75) 60%, transparent); }
 .letterbox-bottom { bottom: 0; height: 22vh; max-height: 200px; background: linear-gradient(transparent, rgba(0,0,0,0.7)); }
 
 .play-big {
@@ -275,11 +294,16 @@ html, body, button, a, .story-root {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.3);
   backdrop-filter: blur(8px);
-  transition: transform 0.15s, background 0.15s;
+  transition: transform 0.15s, background 0.15s, box-shadow 0.2s;
 }
 .cta:hover { transform: translateY(-1px); background: rgba(255, 255, 255, 0.16); }
 .cta-primary { background: linear-gradient(180deg, #fff8ec, #f6d8ae); color: #10131c; border-color: transparent; }
-.cta-primary:hover { background: #fff; }
+.cta-primary:hover {
+  /* gentle brighten + warm glow (a gradient can't fade into a flat colour) */
+  background: linear-gradient(180deg, #fffdf7, #f9e3c2);
+  box-shadow: 0 8px 28px rgba(255, 190, 130, 0.35), 0 0 0 4px rgba(255, 240, 220, 0.12);
+}
+.cta-primary:active { transform: translateY(0) scale(0.985); }
 
 /* the disqualified stamp: a quiet referee's note, not a shout */
 .stamp {
@@ -357,3 +381,68 @@ html, body, button, a, .story-root {
     radial-gradient(ellipse at 50% 120%, #1a2a22 0 40%, transparent 41%),
     linear-gradient(#060a18, #142446 75%, #2b4466);
 }
+
+/* small confirmation under the nav (e.g. "link copied") */
+.toast {
+  font-family: var(--font-geist-sans), sans-serif;
+  font-size: 14px;
+  color: #10131c;
+  background: rgba(255, 244, 228, 0.95);
+  padding: 8px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* ---- claim-your-win modal, in the film's night-glass style ---- */
+.modal-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(22, 28, 50, 0.94), rgba(8, 10, 20, 0.97));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(14px);
+}
+.modal-title {
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  font-size: 34px;
+  line-height: 0.95;
+  letter-spacing: 0.02em;
+  background: linear-gradient(180deg, #fff8ec 0%, #ffe2b8 50%, #f2a774 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.modal-copy {
+  font-family: var(--font-geist-sans), sans-serif;
+  font-weight: 300;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.66);
+}
+.modal-win {
+  font-family: var(--font-anton), "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  font-size: 24px;
+  letter-spacing: 0.03em;
+  color: var(--gold);
+  text-shadow: 0 0 18px rgba(242, 201, 138, 0.45);
+}
+.modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 20;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  transition: background 0.15s, color 0.15s;
+}
+.modal-close:hover { background: rgba(255, 255, 255, 0.18); color: #fff; }

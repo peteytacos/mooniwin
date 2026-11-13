@@ -61,3 +61,22 @@ export function groundHeight(x: number, z: number) {
     (Math.sin(x * 0.11) * Math.cos(z * 0.09) * 1.6 + Math.sin(x * 0.05 + z * 0.07) * 1.2) * roll;
   return hill + undulate;
 }
+
+// ── Driveway: a gravel turning circle by the street lamp, a path to the
+// cottage door and a lane heading out toward the road. Kept clear of grass.
+export const DRIVE = { cx: 2.6, cz: 2.4, r0: 1.55, r1: 3.0 };
+/** [x0, z0, x1, z1, width] straight runs joining the circle. */
+export const DRIVE_RUNS: [number, number, number, number, number][] = [
+  [-7.7, -0.35, -0.25, 1.85, 1.2], // footpath from the door step
+  [4.4, 4.2, 11.6, 8.7, 2.6], // lane out to the road
+];
+export function onDriveway(x: number, z: number, pad = 0) {
+  const r = Math.hypot(x - DRIVE.cx, z - DRIVE.cz);
+  if (r > DRIVE.r0 - pad && r < DRIVE.r1 + pad) return true;
+  for (const [x0, z0, x1, z1, w] of DRIVE_RUNS) {
+    const dx = x1 - x0, dz = z1 - z0;
+    const t = Math.max(0, Math.min(1, ((x - x0) * dx + (z - z0) * dz) / (dx * dx + dz * dz)));
+    if (Math.hypot(x - (x0 + dx * t), z - (z0 + dz * t)) < w / 2 + pad) return true;
+  }
+  return false;
+}

@@ -212,12 +212,12 @@ export default function ClaimWinModal({
     // Text
     ctx.textAlign = "center";
 
-    // "Moon, I win!" with golden glow
+    // "Moon I win!" with golden glow
     ctx.shadowColor = "#fde68a";
     ctx.shadowBlur = 30;
     ctx.fillStyle = "#fde68a";
     ctx.font = "bold 80px system-ui, -apple-system, sans-serif";
-    ctx.fillText("Moon, I win!", cardW / 2, photoH + 80);
+    ctx.fillText("Moon I win!", cardW / 2, photoH + 80);
     ctx.shadowBlur = 0;
 
     // "Better luck tomorrow!"
@@ -331,6 +331,19 @@ export default function ClaimWinModal({
     return () => stopCamera();
   }, [stopCamera]);
 
+  // Esc closes the modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        handleClose();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, handleClose]);
+
   const now = new Date();
   const exampleTimestamp =
     now.toLocaleDateString("en-US", {
@@ -349,14 +362,14 @@ export default function ClaimWinModal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 z-50 flex items-center justify-center cursor-none"
+          className="fixed inset-0 z-50 flex items-center justify-center"
           onClick={handleClose}
         >
           <motion.div
             initial={{ backdropFilter: "blur(0px)" }}
             animate={{ backdropFilter: "blur(12px)" }}
             transition={{ duration: 0.5 }}
-            className="absolute inset-0 bg-black/85"
+            className="absolute inset-0 bg-[#05070f]/75"
           />
 
           <motion.div
@@ -367,11 +380,10 @@ export default function ClaimWinModal({
             className="relative z-10 w-full max-w-sm mx-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={handleClose}
-              className="absolute -top-10 right-0 text-white/30 hover:text-white/70 transition-colors text-lg cursor-none z-20"
-            >
-              &#x2715;
+            <button onClick={handleClose} className="modal-close" aria-label="Close">
+              <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden>
+                <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
             </button>
 
             <AnimatePresence mode="wait">
@@ -382,27 +394,26 @@ export default function ClaimWinModal({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-black rounded-2xl overflow-hidden border border-white/[0.15]"
+                  className="modal-card"
                 >
-                  <div className="p-5 pb-3">
-                    <h2 className="text-xl font-bold text-white tracking-tight">
-                      capture your victory
-                    </h2>
-                    <p className="text-white/40 text-sm mt-1.5 leading-relaxed">
+                  <div className="p-6 pb-3">
+                    <span className="cine-kicker">claim your win</span>
+                    <h2 className="modal-title mt-2">capture your victory</h2>
+                    <p className="modal-copy mt-3">
                       don&apos;t be alarmed, we&apos;re going to ask your
                       permission to use your camera and location to generate
                       proof that you&apos;ve won today.
                     </p>
-                    <p className="text-white/40 text-sm mt-3 leading-relaxed">
+                    <p className="modal-copy mt-3">
                       we definitely don&apos;t store any of your data, this is
                       just a silly website!
                     </p>
-                    <p className="text-white/40 text-sm mt-3 leading-relaxed">
+                    <p className="modal-copy mt-3">
                       below is an example of the card we&apos;ll generate:
                     </p>
                   </div>
 
-                  <div className="mx-5 rounded-xl overflow-hidden border border-white/[0.15]">
+                  <div className="mx-6 rounded-2xl overflow-hidden border border-white/10">
                     <div className="relative aspect-[16/10] bg-gradient-to-b from-[#0f172a] to-black">
                       <img
                         src="/win-placeholder.png"
@@ -415,9 +426,7 @@ export default function ClaimWinModal({
                       <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
                     </div>
                     <div className="bg-black px-4 pb-4 -mt-8 relative">
-                      <p className="text-[#fde68a] font-bold text-lg tracking-tight text-glow">
-                        Moon, I win!
-                      </p>
+                      <p className="modal-win">Moon I win!</p>
                       <p className="text-white/80 text-sm mt-0.5">
                         Better luck tomorrow, nerd 😛
                       </p>
@@ -430,16 +439,13 @@ export default function ClaimWinModal({
                   </div>
 
                   {cameraError && (
-                    <p className="mx-5 mt-3 text-red-400/80 text-xs leading-relaxed">
+                    <p className="mx-6 mt-3 text-[#ff8a7a] text-xs leading-relaxed">
                       {cameraError}
                     </p>
                   )}
 
-                  <div className="p-5 pt-4">
-                    <button
-                      onClick={startCamera}
-                      className="w-full py-3 bg-black text-white font-bold rounded-lg border border-white/[0.15] hover:bg-white/[0.06] active:scale-[0.98] transition-all cursor-none text-sm tracking-tight"
-                    >
+                  <div className="p-6 pt-5">
+                    <button onClick={startCamera} className="cta cta-primary w-full">
                       capture my win
                     </button>
                   </div>
@@ -453,9 +459,9 @@ export default function ClaimWinModal({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-black rounded-2xl overflow-hidden border border-white/[0.15]"
+                  className="modal-card"
                 >
-                  <div className="relative aspect-[3/4] bg-black rounded-t-2xl overflow-hidden">
+                  <div className="relative aspect-[3/4] bg-black overflow-hidden">
                     <video
                       ref={videoRefCallback}
                       autoPlay
@@ -481,13 +487,13 @@ export default function ClaimWinModal({
                     <div className="absolute bottom-0 inset-x-0 pb-6 pt-16 bg-gradient-to-t from-black/60 to-transparent flex items-end justify-center gap-10">
                       <button
                         onClick={flipCamera}
-                        className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white text-xl cursor-none rounded-full bg-white/[0.06] hover:bg-white/[0.1] transition-colors"
+                        className="w-10 h-10 flex items-center justify-center text-white/40 hover:text-white text-xl rounded-full bg-white/[0.06] hover:bg-white/[0.1] transition-colors"
                       >
                         &#x21bb;
                       </button>
                       <button
                         onClick={capturePhoto}
-                        className="w-[72px] h-[72px] rounded-full border-[3px] border-white cursor-none flex items-center justify-center group"
+                        className="w-[72px] h-[72px] rounded-full border-[3px] border-white flex items-center justify-center group"
                       >
                         <div className="w-[60px] h-[60px] rounded-full bg-white group-hover:bg-white/90 group-active:bg-white/70 transition-colors" />
                       </button>
@@ -504,20 +510,20 @@ export default function ClaimWinModal({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="bg-black rounded-2xl overflow-hidden border border-white/[0.15]"
+                  className="modal-card"
                 >
                   <div className="p-4">
                     <img
                       src={cardImageUrl}
                       alt="Your win card"
-                      className="w-full rounded-lg"
+                      className="w-full rounded-xl"
                     />
                   </div>
                   <div className="px-4 pb-4 space-y-3">
                     <button
                       onClick={handleShare}
                       disabled={!winId && !uploadFailed}
-                      className="w-full py-3 bg-black text-white font-bold rounded-lg border border-white/[0.15] hover:bg-white/[0.06] active:scale-[0.98] transition-all cursor-none text-sm tracking-tight disabled:opacity-40 disabled:pointer-events-none"
+                      className="cta cta-primary w-full disabled:opacity-40 disabled:pointer-events-none"
                     >
                       {winId
                         ? "share your win"
@@ -527,7 +533,7 @@ export default function ClaimWinModal({
                     </button>
                     <button
                       onClick={handleRetake}
-                      className="w-full py-2 text-white/30 hover:text-white/60 font-medium transition-colors cursor-none text-xs"
+                      className="w-full py-2 text-white/50 hover:text-white/80 transition-colors text-xs tracking-[0.2em] uppercase"
                     >
                       retake
                     </button>

@@ -3,11 +3,19 @@ import { chapters, CHAPTER_COUNT, MOON_TARGET, type Palette, type Pose, type Arm
 
 // Mutable, frame-shared story state (kept outside React to avoid re-renders).
 export const story = {
-  target: 0, // chapter position requested by scroll (float)
+  target: 0, // requested chapter position (float)
   t: 0, // smoothed chapter position (float)
   time: 0,
   seeking: false,
   pointer: new THREE.Vector2(),
+  chapter: 0, // chapter the playhead is in
+  local: 0, // seconds into that chapter
+};
+
+/** Screen point just above each lead's head (CSS px), so their spoken lines float over them. */
+export const headAnchors = {
+  hero: { x: 0, y: 0, ok: false },
+  friend: { x: 0, y: 0, ok: false },
 };
 
 /** Where the moon actually is this frame (updated by <Moon />). */
@@ -138,6 +146,17 @@ function lerpAngle(a: number, b: number, f: number) {
 
 /** Samples a pose track at time t; fills `out`. Poses inherit unspecified fields. */
 export function samplePose(track: Pose[], t: number, out: SampledPose) {
+  // gated keys: hold at the previous key until the cue time in that chapter
+  if (!story.seeking) {
+    for (let j = 1; j < track.length; j++) {
+      const g = track[j].gate;
+      if (!g || Math.round(track[j].at) !== story.chapter) continue;
+      const prev = track[j - 1].at;
+      if (t < prev) continue;
+      const p = clamp((story.local - g.sec) / g.walk);
+      t = Math.min(t, prev + (track[j].at - prev) * p);
+    }
+  }
   // Arms default to "rest" on every keyframe; `visible` and `target` inherit.
   let k = 0;
   while (k < track.length - 1 && track[k + 1].at <= t) k++;

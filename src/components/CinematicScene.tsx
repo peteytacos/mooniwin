@@ -10,7 +10,7 @@ import { ripples } from "./cinematic/ripples";
 import { shootingStars } from "./cinematic/shootingStars";
 
 const crawlLines = [
-  "moon, i win is a game that has been",
+  "moon i win is a game that has been",
   "passed down through the centuries",
   "in order to settle a never ending question:",
   "",
@@ -22,7 +22,7 @@ const crawlLines = [
   "",
   "be within shouting distance",
   "",
-  "point at the moon and say \"moon, i win!\"",
+  "point at the moon and say \"moon i win!\"",
   "",
   "enjoy your victory for the day",
   "",
@@ -407,7 +407,7 @@ export default function CinematicScene() {
                 onClick={(e) => { e.stopPropagation(); window.location.reload(); }}
                 className="text-sm sm:text-base font-medium text-white hover:text-white/80 transition-colors cursor-none"
               >
-                moon, i win!
+                moon i win!
               </button>
               <div className="flex items-center gap-6">
                 <button
